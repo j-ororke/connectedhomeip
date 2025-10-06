@@ -12,7 +12,7 @@ Python tests located in src/python_testing
 -   [src/python_testing/hello_test.py](https://github.com/project-chip/connectedhomeip/blob/master/src/python_testing/hello_test.py) -
     sample test showing test setup and test harness integration
 -   [https://github.com/google/mobly/blob/master/docs/tutorial.md](https://github.com/google/mobly/blob/master/docs/tutorial.md)
--   [ChipDeviceCtrl.py](https://github.com/project-chip/connectedhomeip/blob/master/src/controller/python/chip/ChipDeviceCtrl.py) -
+-   [ChipDeviceCtrl.py](https://github.com/project-chip/connectedhomeip/blob/master/src/controller/python/matter/ChipDeviceCtrl.py) -
     Controller implementation - [API documentation](./ChipDeviceCtrlAPI.md)
 -   [scripts/tests/run_python_test.py](https://github.com/project-chip/connectedhomeip/blob/master/scripts/tests/run_python_test.py)
     to easily set up app and script for testing - used in CI
@@ -25,7 +25,7 @@ Python tests located in src/python_testing
         section should include various parameters and their respective values,
         which will guide the test runner on how to execute the tests.
 -   All test classes inherit from `MatterBaseTest` in
-    [matter_testing.py](https://github.com/project-chip/connectedhomeip/blob/master/src/python_testing/matter_testing_infrastructure/chip/testing/matter_testing.py)
+    [matter_testing.py](https://github.com/project-chip/connectedhomeip/blob/master/src/python_testing/matter_testing_infrastructure/matter/testing/matter_testing.py)
     -   Support for commissioning using the python controller
     -   Default controller (`self.default_controller`) of type `ChipDeviceCtrl`
     -   `MatterBaseTest` inherits from the Mobly BaseTestClass
@@ -103,12 +103,12 @@ the tests. Please see [Running tests in CI](#running-tests-in-ci).
 
 ## Cluster Codegen
 
--   [Objects.py](https://github.com/project-chip/connectedhomeip/blob/master/src/controller/python/chip/clusters/Objects.py)
+-   [Objects.py](https://github.com/project-chip/connectedhomeip/blob/master/src/controller/python/matter/clusters/Objects.py)
     for codegen,
--   [ClusterObjects.py](https://github.com/project-chip/connectedhomeip/blob/master/src/controller/python/chip/clusters/ClusterObjects.py)
+-   [ClusterObjects.py](https://github.com/project-chip/connectedhomeip/blob/master/src/controller/python/matter/clusters/ClusterObjects.py)
     for classes
 
-Common import used in test files: `import chip.clusters as Clusters`
+Common import used in test files: `import matter.clusters as Clusters`
 
 Each cluster is defined in the `Clusters.<ClusterName>` namespace and contains
 always:
@@ -217,7 +217,7 @@ Each `Clusters.<ClusterName>.Structs.<StructName>` has:
 
 Example:
 
-```
+```python
 Clusters.BasicInformation.Structs.ProductAppearanceStruct(
    finish=Clusters.BasicInformation.Enums.ProductFinishEnum.kFabric,
    primaryColor=Clusters.BasicInformation.Enums.ColorEnum.kBlack)
@@ -225,29 +225,30 @@ Clusters.BasicInformation.Structs.ProductAppearanceStruct(
 
 ## Accessing Clusters and Cluster Elements by ID
 
-[ClusterObjects.py](https://github.com/project-chip/connectedhomeip/blob/master/src/controller/python/chip/clusters/ClusterObjects.py)
+[ClusterObjects.py](https://github.com/project-chip/connectedhomeip/blob/master/src/controller/python/matter/clusters/ClusterObjects.py)
 has a set of objects that map ID to the code generated object.
 
-`chip.clusters.ClusterObjects.ALL_CLUSTERS`
+`matter.clusters.ClusterObjects.ALL_CLUSTERS`
 
 -   `dict[int, Cluster]` - maps cluster ID to Cluster class
-    -   `cluster = chip.clusters.ClusterObjects.ALL_CLUSTERS[cluster_id]`
+    -   `cluster = matter.clusters.ClusterObjects.ALL_CLUSTERS[cluster_id]`
 
-`chip.clusters.ClusterObjects.ALL_ATTRIBUTES`
+`matter.clusters.ClusterObjects.ALL_ATTRIBUTES`
 
 -   `dict[int, dict[int, ClusterAttributeDescriptor]]` - maps cluster ID to a
     dict of attribute ID to attribute class
-    -   `attr = chip.clusters.ClusterObjects.ALL_ATTRIBUTES[cluster_id][attribute_id]`
+    -   `attr = matter.clusters.ClusterObjects.ALL_ATTRIBUTES[cluster_id][attribute_id]`
 
-`chip.clusters.ClusterObjects.ALL_ACCEPTED_COMMANDS/ALL_GENERATED_COMMANDS`
+`matter.clusters.ClusterObjects.ALL_ACCEPTED_COMMANDS/ALL_GENERATED_COMMANDS`
 
 -   dict[int, dict[int, ClusterCommand]]
--   cmd = chip.clusters.ClusterObjects.ALL_ACCEPTED_COMMANDS[cluster_id][cmd_id]
+-   cmd =
+    matter.clusters.ClusterObjects.ALL_ACCEPTED_COMMANDS[cluster_id][cmd_id]
 
 ## ChipDeviceCtrl API
 
 The `ChipDeviceCtrl` API is implemented in
-[ChipDeviceCtrl.py](https://github.com/project-chip/connectedhomeip/blob/master/src/controller/python/chip/ChipDeviceCtrl.py).
+[ChipDeviceCtrl.py](https://github.com/project-chip/connectedhomeip/blob/master/src/controller/python/matter/ChipDeviceCtrl.py).
 
 The `ChipDeviceCtrl` implements a python-based controller that can be used to
 commission and control devices. The API is documented here in the
@@ -293,7 +294,7 @@ Multi-path
 
 Example:
 
-```
+```python
 urgent = 1
 
 await dev_ctrl ReadEvent(node_id, [(1,
@@ -321,17 +322,16 @@ callbacks are called on update.
 Example for setting callbacks:
 
 ```
-q = queue.Queue()
-cb = SimpleEventCallback("cb", cluster_id, event_id, q)
+cb = EventSubscriptionHandler(cluster, cluster_id, event_id)
 
 urgent = 1
 subscription = await dev_ctrl.ReadEvent(nodeid=1, events=[(1, event, urgent)], reportInterval=[1, 3])
 subscription.SetEventUpdateCallback(callback=cb)
 
 try:
-    q.get(block=True, timeout=timeout)
+    cb.get_event_from_queue(block=True, timeout=timeout)
 except queue.Empty:
-    asserts.assert_fail(“Timeout on event”)
+    asserts.assert_fail("Timeout on event")
 ```
 
 ### [WriteAttribute](./ChipDeviceCtrlAPI.md#writeattribute)
@@ -359,7 +359,7 @@ asserts.assert_equal(ret[0].status, Status.Success, “write failed”)
 
 Example:
 
-```
+```python
 pai = await dev_ctrl.SendCommand(nodeid, 0, Clusters.OperationalCredentials.Commands.CertificateChainRequest(2))
 ```
 
@@ -379,7 +379,7 @@ pai = await dev_ctrl.SendCommand(nodeid, 0, Clusters.OperationalCredentials.Comm
 ## Mobly helpers
 
 The test system is based on Mobly, and the
-[matter_testing.py](https://github.com/project-chip/connectedhomeip/blob/master/src/python_testing/matter_testing_infrastructure/chip/testing/matter_testing.py)
+[matter_testing.py](https://github.com/project-chip/connectedhomeip/blob/master/src/python_testing/matter_testing_infrastructure/matter/testing/matter_testing.py)
 class provides some helpers for Mobly integration.
 
 -   `default_matter_test_main`
@@ -387,7 +387,7 @@ class provides some helpers for Mobly integration.
 
 use as:
 
-```
+```python
 if __name__ == "__main__":
     default_matter_test_main()
 ```
@@ -479,7 +479,7 @@ See
 
 To create a controller on a new fabric:
 
-```
+```python
 new_CA = self.certificate_authority_manager.NewCertificateAuthority()
 
 new_fabric_admin = new_certificate_authority.NewFabricAdmin(vendorId=0xFFF1,
@@ -490,7 +490,7 @@ TH2 = new_fabric_admin.NewController(nodeId=112233)
 
 Open a commissioning window (ECW):
 
-```
+```python
 params = self.OpenCommissioningWindow(dev_ctrl=self.default_controller, node_id=self.dut_node_id)
 ```
 
@@ -499,7 +499,7 @@ the fabric admin.
 
 Fabric admin for default controller:
 
-```
+```python
   fa = self.certificate_authority_manager.activeCaList[0].adminList[0]
   second_ctrl = fa.new_fabric_admin.NewController(nodeId=node_id)
 ```
@@ -521,24 +521,24 @@ self.is_ci = self.check_pics("PICS_SDK_CI_ONLY")
 ```
 
 In the case that a test script requires the use of named-pipe commands to
-achieve the manual steps, you can use the `write_to_app_pipe(command)` to send
-these commands. This command requires the test class to define a `self.app_pipe`
-string value with the name of the pipe. This depends on how the app is set up.
+achieve the manual steps, you can use the method
+`write_to_app_pipe(command,app_pipe)` to send these commands. This method
+requires value for `app_pipe`, if is not provided in the method it will use
+argument from the CMD or CI argument `--app-pipe` which must contain the string
+value with path of the pipe. This value depends on how the --app-pipe in the app
+is set up.
 
-If the name of the pipe is dynamic and based on the app's PID, the following
-snippet can be added to the start of tests that use the `write_to_app_pipe`
-method.
+Note: The name of the pipe can be anything while is a valid file path.
 
-```python
-app_pid = self.matter_test_config.app_pid
-if app_pid != 0:
-	self.is_ci = true
-	self.app_pipe = "/tmp/chip_<app name>_fifo_" + str(app_pid)
+Example of usage:
+
+```bash
+First run the app with the desired app-pipe path:
+./out/darwin-arm64-all-clusters/chip-all-clusters-app --app-pipe  /tmp/ref_alm_2_2
+
+Then execute the test with the app-pipe argument with the value defined while running the app.
+python3 src/python_testing/TC_REFALM_2_2.py --commissioning-method on-network --qr-code MT:-24J0AFN00KA0648G00  --PICS src/app/tests/suites/certification/ci-pics-values --app-pipe /tmp/ref_alm_2_2  --int-arg PIXIT.REFALM.AlarmThreshold:1
 ```
-
-This requires the test to be executed with the `--app-pid` flag set if the
-manual steps should be executed by the script. This flag sets the process ID of
-the DUT's matter application.
 
 ### Running on a separate machines
 
@@ -577,25 +577,24 @@ running. To compile and install the wheel, do the following:
 
 First activate the matter environment using either
 
-```
+```shell
 . ./scripts/bootstrap.sh
 ```
 
 or
 
-```
+```shell
 . ./scripts/activate.sh
 ```
 
 bootstrap.sh should be used for for the first setup, activate.sh may be used for
 subsequent setups as it is faster.
 
-Next build the python wheels and create / activate a venv (called `pyenv` here,
-but any name may be used)
+Next build the python wheels and create / activate a venv
 
-```
+```shell
 ./scripts/build_python.sh -i out/python_env
-source pyenv/bin/activate
+source out/python_env/bin/activate
 ```
 
 ## Running tests
@@ -610,7 +609,7 @@ that will be commissioned either over BLE or WiFi.
 
 For example, to run the TC-ACE-1.2 tests against an un-commissioned DUT:
 
-```
+```shell
 python3 src/python_testing/TC_ACE_1_2.py --commissioning-method on-network --qr-code MT:-24J0AFN00KA0648G00
 ```
 
@@ -618,7 +617,7 @@ Some tests require additional arguments (ex. PIXITs or configuration variables
 for the CI). These arguments can be passed as sets of key/value pairs using the
 `--<type>-arg:<value>` command line arguments. For example:
 
-```
+```shell
 --int-arg PIXIT.ACE.APPENDPOINT:1 --int-arg PIXIT.ACE.APPDEVTYPEID:0x0100 --string-arg PIXIT.ACE.APPCLUSTER:OnOff --string-arg PIXIT.ACE.APPATTRIBUTE:OnOff
 ```
 
@@ -629,6 +628,12 @@ example DUT on the host and includes factory reset support
 
 ```shell
 ./scripts/tests/run_python_test.py --factory-reset --app <your_app> --app-args "whatever" --script <your_script> --script-args "whatever"
+```
+
+For example, to run TC-ACE-1.2 tests against the linux `chip-lighting-app`:
+
+```shell
+./scripts/tests/run_python_test.py --factory-reset --app ./out/linux-x64-light-no-ble/chip-lighting-app --app-args "--trace-to json:log" --script src/python_testing/TC_ACE_1_2.py --script-args "--commissioning-method on-network --qr-code MT:-24J0AFN00KA0648G00"
 ```
 
 # Running tests in CI
@@ -716,6 +721,11 @@ for that run, e.g.:
     the pattern is found.
 
     -   Example: `"Manual pairing code: \\[\\d+\\]"`
+
+-   `app-stdin-pipe`: Specifies the path to the named pipe that the test runner
+    might use to send input to the application.
+
+    -   Example: `/tmp/app-fifo`
 
 -   `script-args`: Specifies the arguments to be passed to the test script.
 
