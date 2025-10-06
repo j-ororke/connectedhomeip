@@ -320,8 +320,7 @@ class AccessChecker(MatterBaseTest, BasicCompositionTests):
                         self.success = False
                         logging.info("✗ Failed to establish subscription (expected success)")
                     else:
-                        logging.info(f"✓ Successfully established subscription (ID: {
-                                     subscription.subscriptionId}) with privilege {privilege}")  # fmt: skip
+                        logging.info(f"✓ Successfully established subscription (ID: {subscription.subscriptionId}) with privilege {privilege}")  # noqa # fmt: skip
                 else:
                     # ERROR: Subscription succeeded but should have failed with
                     # UnsupportedAccess. We reached here because no exception was

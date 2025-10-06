@@ -82,8 +82,7 @@ class TC_IDM_4_3(MatterBaseTest, BasicCompositionTests):
     def fprint(self, text: str, background_color: str, padding: int = 0):
         double_space = "  " * padding
         padding_space = "\n" * (padding - 1)
-        print(f"{padding_space}{double_space}{self.BACKGROUND_COLORS.get(background_color, self.BACKGROUND_COLORS['reset'])}{
-              text}{self.BACKGROUND_COLORS['reset']}{padding_space}")  # fmt: skip
+        print(f"{padding_space}{double_space}{self.BACKGROUND_COLORS.get(background_color, self.BACKGROUND_COLORS['reset'])}{text}{self.BACKGROUND_COLORS['reset']}{padding_space}")  # noqa # fmt: skip
 
     def steps_TC_IDM_4_3(self):
         return [TestStep(1, "DUT and TH activate the subscription for an attribute. Do not change the value of the attribute which has been subscribed.",
@@ -198,7 +197,7 @@ class TC_IDM_4_3(MatterBaseTest, BasicCompositionTests):
         if hasattr(attribute, 'cluster_id') and attribute.cluster_id in non_subscribable_clusters:
             return False
 
-        # If attribute has quality metadata, check if it's readable (readable implies subscribable)
+        # If attribute has quality metadata, check if it's readable
         if hasattr(attribute, 'attribute_type'):
             # Standard readable attributes should be subscribable
             return True
