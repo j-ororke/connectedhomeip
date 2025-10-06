@@ -301,8 +301,7 @@ class AccessChecker(MatterBaseTest, BasicCompositionTests):
             test_name = f'Subscribe access checker - {privilege}'
 
             try:
-                logging.info(f"Subscribing to attribute {attribute} on cluster {
-                             xml_cluster.name} on endpoint {endpoint_id} with privilege {privilege}")
+                logging.info(f"Subscribing to attribute {attribute} on cluster {xml_cluster.name} on endpoint {endpoint_id} with privilege {privilege}") # chipstack-ok
 
                 # Subscribe to attribute using the same pattern as TC-IDM-4.3 step 2
                 # This establishes subscription and waits for priming report
@@ -325,8 +324,7 @@ class AccessChecker(MatterBaseTest, BasicCompositionTests):
                         self.success = False
                         logging.info(f"✗ Failed to establish subscription (expected success)")
                     else:
-                        logging.info(f"✓ Successfully established subscription (ID: {
-                                     subscription.subscriptionId}) with privilege {privilege}")
+                        logging.info(f"✓ Successfully established subscription (ID: {subscription.subscriptionId}) with privilege {privilege}") # chipstack-ok
                 else:
                     # ERROR: Subscription succeeded but should have failed with
                     # UnsupportedAccess. We reached here because no exception was
@@ -358,7 +356,7 @@ class AccessChecker(MatterBaseTest, BasicCompositionTests):
                         self.record_error(test_name=test_name,
                                           location=AttributePathLocation(endpoint_id=endpoint_id,
                                                                          cluster_id=cluster_id, attribute_id=attribute_id),
-                                          problem=f"Subscription failed with {e.status} but expected UnsupportedAccess for privilege {privilege}")
+                                          problem=f"Subscription failed with {e.status} but expected UnsupportedAccess for privilege {privilege}") 
                         self.success = False
                         logging.info(f"✗ Subscription failed with {e.status} (expected UnsupportedAccess)")
                     else:
@@ -371,8 +369,7 @@ class AccessChecker(MatterBaseTest, BasicCompositionTests):
                 # Common clusters: NetworkCommissioning, Camera AV Stream
                 # Management, Access Control, Operational Credentials.
                 if e.err == 0x00000580:  # INVALID_ACTION
-                    logging.warning(f"⚠ Skipping cluster {xml_cluster.name} attribute {
-                                    attribute} - subscription not supported (INVALID_ACTION)")
+                    logging.warning(f"⚠ Skipping cluster {xml_cluster.name} attribute {attribute} - subscription not supported (INVALID_ACTION)") # chipstack-ok
                     continue  # Skip this attribute, continue with next attribute in cluster
                 else:
                     # Unexpected ChipStackError (not INVALID_ACTION)
