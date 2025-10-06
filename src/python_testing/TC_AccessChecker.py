@@ -358,11 +358,11 @@ class AccessChecker(MatterBaseTest, BasicCompositionTests):
                         logging.info(f"✓ Subscription correctly failed with UnsupportedAccess")
 
             except ChipStackError as e:
-                '''
-                    Handle ChipStackError - some clusters/attributes don't support subscription
-                    or don't support subscriptions unless under certain conditions or in certain states
-                    Common clusters: NetworkCommissioning, Camera AV Stream Management, Access Control, Operational Credentials
-                '''
+                # Handle ChipStackError - some clusters/attributes don't support
+                # subscription or don't support subscriptions unless under
+                # certain conditions or in certain states.
+                # Common clusters: NetworkCommissioning, Camera AV Stream
+                # Management, Access Control, Operational Credentials.
                 if e.err == 0x00000580:  # INVALID_ACTION
                     logging.warning(f"⚠ Skipping cluster {xml_cluster.name} attribute {attribute} - subscription not supported (INVALID_ACTION)")
                     continue  # Skip this attribute, continue with next attribute in cluster
