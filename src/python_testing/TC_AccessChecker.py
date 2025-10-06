@@ -53,8 +53,9 @@
 import logging
 from copy import deepcopy
 from enum import Enum, auto
-from mobly import asserts
 from typing import Optional
+
+from mobly import asserts
 
 import matter.clusters as Clusters
 from matter.clusters.Attribute import ValueDecodeFailure
