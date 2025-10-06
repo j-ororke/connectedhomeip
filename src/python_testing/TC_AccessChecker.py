@@ -324,10 +324,10 @@ class AccessChecker(MatterBaseTest, BasicCompositionTests):
                     else:
                         logging.info(f"✓ Successfully established subscription (ID: {subscription.subscriptionId}) with privilege {privilege}")
                 else:
-                    '''
-                        ERROR: Subscription succeeded but should have failed with UnsupportedAccess
-                        We reached here because no exception was thrown (privilege insufficient but subscription allowed)
-                    '''
+                    # ERROR: Subscription succeeded but should have failed with
+                    # UnsupportedAccess. We reached here because no exception was
+                    # thrown (privilege insufficient but subscription was
+                    # allowed).
                     self.record_error(test_name=test_name,
                                     location=AttributePathLocation(endpoint_id=endpoint_id, cluster_id=cluster_id, attribute_id=attribute_id),
                                     problem=f"Subscription succeeded but should have failed with privilege {privilege} (requires {spec_requires})")
