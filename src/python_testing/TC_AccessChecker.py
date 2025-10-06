@@ -318,9 +318,9 @@ class AccessChecker(MatterBaseTest, BasicCompositionTests):
                                                                          cluster_id=cluster_id, attribute_id=attribute_id),
                                           problem=f"Subscription activation failed - expected success with privilege {privilege}")
                         self.success = False
-                        logging.info("✗ Failed to establish subscription (expected success)")
+                        logging.info("Failed to establish subscription (expected success)")
                     else:
-                        logging.info(f"✓ Successfully established subscription (ID: {subscription.subscriptionId}) with privilege {privilege}")  # noqa # fmt: skip
+                        logging.info(f"Successfully established subscription (ID: {subscription.subscriptionId}) with privilege {privilege}")  # noqa # fmt: skip
                 else:
                     # ERROR: Subscription succeeded but should have failed with
                     # UnsupportedAccess. We reached here because no exception was
@@ -331,7 +331,7 @@ class AccessChecker(MatterBaseTest, BasicCompositionTests):
                                                                      cluster_id=cluster_id, attribute_id=attribute_id),
                                       problem=f"Subscription succeeded but should have failed with privilege {privilege} (requires {spec_requires})")
                     self.success = False
-                    logging.info("✗ Subscription succeeded but should have failed")
+                    logging.info("Subscription succeeded but should have failed")
 
                 # Clean up subscription
                 subscription.Shutdown()
@@ -345,18 +345,17 @@ class AccessChecker(MatterBaseTest, BasicCompositionTests):
                                                                      cluster_id=cluster_id, attribute_id=attribute_id),
                                       problem=f"Subscription failed with {e.status} but should have succeeded with privilege {privilege}")
                     self.success = False
-                    logging.info(f"✗ Subscription failed with {e.status} (expected success)")
+                    logging.info(f"Subscription failed with {e.status} (expected success)")
                 else:
-                    # Should have failed - verify it's the right error
                     if e.status != Status.UnsupportedAccess:
                         self.record_error(test_name=test_name,
                                           location=AttributePathLocation(endpoint_id=endpoint_id,
                                                                          cluster_id=cluster_id, attribute_id=attribute_id),
                                           problem=f"Subscription failed with {e.status} but expected UnsupportedAccess for privilege {privilege}")
                         self.success = False
-                        logging.info(f"✗ Subscription failed with {e.status} (expected UnsupportedAccess)")
+                        logging.info(f"Subscription failed with {e.status} (expected UnsupportedAccess)")
                     else:
-                        logging.info("✓ Subscription correctly failed with UnsupportedAccess")
+                        logging.info("Subscription correctly failed with UnsupportedAccess")
 
             except ChipStackError as e:  # chipstack-ok
                 # Handle ChipStackError - some clusters/attributes don't support
@@ -365,7 +364,7 @@ class AccessChecker(MatterBaseTest, BasicCompositionTests):
                 # Common clusters: NetworkCommissioning, Camera AV Stream
                 # Management, Access Control, Operational Credentials.
                 if e.err == 0x00000580:  # INVALID_ACTION
-                    logging.warning(f"⚠ Skipping cluster {xml_cluster.name} attribute {attribute}")
+                    logging.warning(f"Skipping cluster {xml_cluster.name} attribute {attribute}")
                     continue  # Skip this attribute, continue with next attribute in cluster
                 else:
                     # Unexpected ChipStackError (not INVALID_ACTION)
@@ -378,11 +377,11 @@ class AccessChecker(MatterBaseTest, BasicCompositionTests):
 
             # Handle other unexpected exceptions, not sure what they might be, but if they occur, we will catch them here
             except Exception as e:
-                logging.error(f"Unexpected exception subscribing to cluster {xml_cluster.name}: {type(e).__name__}: {e}")
+                logging.error(f"Unexpected exception subscribing to cluster {xml_cluster.name}: {e}")
                 self.record_error(test_name=test_name,
                                   location=AttributePathLocation(endpoint_id=endpoint_id,
                                                                  cluster_id=cluster_id, attribute_id=attribute_id),
-                                  problem=f"Unexpected error during subscription: {type(e).__name__}: {e}")
+                                  problem=f"Unexpected error during subscription: {e}")
                 self.success = False
 
     async def _run_write_access_test_for_cluster_privilege(self, endpoint_id, cluster_id, cluster, xml_cluster: XmlCluster, privilege: Clusters.AccessControl.Enums.AccessControlEntryPrivilegeEnum, wildcard_read):
