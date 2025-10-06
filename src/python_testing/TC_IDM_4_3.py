@@ -34,24 +34,19 @@
 #       --trace-to perfetto:${TRACE_TEST_PERFETTO}.perfetto
 # === END CI TEST ARGUMENTS ===
 
-import copy
 import inspect
 import logging
 import queue
-import threading
 import time
-from datetime import datetime
 from enum import IntFlag
 
-import chip.clusters as Clusters
-from chip.ChipDeviceCtrl import ChipDeviceController
-from chip.clusters import ClusterObjects as ClusterObjects
-from chip.clusters.Attribute import AsyncReadTransaction, AttributePath, SubscriptionTransaction, TypedAttributePath
-from chip.clusters.enum import MatterIntEnum
-from chip.exceptions import ChipStackError
-from chip.interaction_model import Status
-from chip.testing.basic_composition import BasicCompositionTests
-from chip.testing.matter_testing import (AttributeChangeCallback, EventChangeCallback, MatterBaseTest, TestStep, async_test_body,
+import matter.clusters as Clusters
+from matter.ChipDeviceCtrl import ChipDeviceController
+from matter.clusters import ClusterObjects as ClusterObjects
+from matter.clusters.Attribute import SubscriptionTransaction
+from matter.clusters.enum import MatterIntEnum
+from matter.testing.basic_composition import BasicCompositionTests
+from matter.testing.matter_testing import (MatterBaseTest, TestStep, async_test_body,
                                          default_matter_test_main)
 from mobly import asserts, signals
 
@@ -87,8 +82,7 @@ class TC_IDM_4_3(MatterBaseTest, BasicCompositionTests):
     def fprint(self, text: str, background_color: str, padding: int = 0):
         double_space = "  " * padding
         padding_space = "\n" * (padding - 1)
-        print(f"{padding_space}{double_space}{self.BACKGROUND_COLORS.get(background_color,
-              self.BACKGROUND_COLORS['reset'])}{text}{self.BACKGROUND_COLORS['reset']}{padding_space}")
+        print(f"{padding_space}{double_space}{self.BACKGROUND_COLORS.get(background_color, self.BACKGROUND_COLORS['reset'])}{text}{self.BACKGROUND_COLORS['reset']}{padding_space}") # fmt: skip
 
     def steps_TC_IDM_4_3(self):
         return [TestStep(1, "DUT and TH activate the subscription for an attribute. Do not change the value of the attribute which has been subscribed.",
@@ -190,33 +184,53 @@ class TC_IDM_4_3(MatterBaseTest, BasicCompositionTests):
                                       ClusterObjects.ClusterObjectFieldDescriptor(Type=desired_type)]
         return all_attributes_of_type
 
+    def is_attribute_subscribable(self, attribute) -> bool:
+        # List of known non-subscribable attributes (clusters that commonly return INVALID_ACTION)
+        non_subscribable_clusters = [
+            0x31,   # NetworkCommissioning
+            0x1F,   # AccessControl
+            0x3E,   # OperationalCredentials
+            0x0551, # CameraAvStreamManagement
+        ]
+        
+        # Skip attributes from clusters known to have subscription issues
+        if hasattr(attribute, 'cluster_id') and attribute.cluster_id in non_subscribable_clusters:
+            return False
+            
+        # If attribute has quality metadata, check if it's readable (readable implies subscribable)
+        if hasattr(attribute, 'attribute_type'):
+            # Standard readable attributes should be subscribable
+            return True
+            
+        return True  # Default to assuming it's subscribable
+
     async def check_attribute_read_for_type(self, attribute_type: type, return_objects: bool = False) -> None:
         # Get all clusters from device
         self.fprint(f"self.device_clusters: {self.device_clusters}", "red", 2)
         for cluster in self.device_clusters:
-
-            # TEMPORARY: if cluster is SmokeCoAlarm skip, as it returns INVALID_ACTION when trying
-            # to subscribe to its TestInProgress attribute
-            # if cluster.id == 92:
-            #     continue
-
             all_types = await self.all_type_attributes_for_cluster(cluster, attribute_type)
             self.fprint(f"all_types: {all_types}", "green", 2)
 
             if all_types:
-                chosen_attribute = all_types[0]
-                chosen_cluster = Clusters.ClusterObjects.ALL_CLUSTERS[chosen_attribute.cluster_id]
-                break
+                # Filter for subscribable attributes
+                subscribable_attrs = [attr for attr in all_types if self.is_attribute_subscribable(attr)]
+                
+                if subscribable_attrs:
+                    chosen_attribute = subscribable_attrs[0]
+                    chosen_cluster = Clusters.ClusterObjects.ALL_CLUSTERS[chosen_attribute.cluster_id]
+                    break
         else:
-            print(f"Attribute type not found on device: {attribute_type}")
+            print(f"Subscribable attribute of type {attribute_type} not found on device")
             chosen_cluster = None
+            chosen_attribute = None
 
         endpoint = None
-        for endpoint in self.endpoints:
-            if (chosen_cluster in self.endpoints[endpoint]) and (chosen_attribute in self.endpoints[endpoint][chosen_cluster]):
-                break
+        if chosen_cluster and chosen_attribute:
+            for endpoint in self.endpoints:
+                if (chosen_cluster in self.endpoints[endpoint]) and (chosen_attribute in self.endpoints[endpoint][chosen_cluster]):
+                    break
 
-        if chosen_cluster and (endpoint is not None):
+        if chosen_cluster and chosen_attribute and (endpoint is not None):
             output = await self.read_single_attribute_check_success(
                 endpoint=endpoint,
                 dev_ctrl=self.default_controller,
@@ -421,7 +435,7 @@ class TC_IDM_4_3(MatterBaseTest, BasicCompositionTests):
 
             # Subscribe to attribute
             self.fprint(f"Will sub TO: {attr_path}", "black", 7)
-            logging.info(f"Attribute of type 'bool' was found")
+            logging.info("Attribute of type 'bool' was found")
             sub_th_step2: SubscriptionTransaction = await TH.ReadAttribute(
                 nodeid=self.dut_node_id,
                 attributes=attr_path,

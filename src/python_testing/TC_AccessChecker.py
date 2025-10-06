@@ -55,8 +55,6 @@ from copy import deepcopy
 from enum import Enum, auto
 from typing import Optional
 
-from mobly import asserts
-
 import matter.clusters as Clusters
 from matter.clusters.Attribute import ValueDecodeFailure
 from matter.exceptions import ChipStackError
@@ -290,8 +288,6 @@ class AccessChecker(MatterBaseTest, BasicCompositionTests):
             Note: Like TC-ACE-2.1, this loops through ALL checkable attributes in the cluster
             to provide complete access control validation coverage.
         """
-        cluster_class = Clusters.ClusterObjects.ALL_CLUSTERS[cluster_id]
-
         # Loop through all checkable attributes, consistent with TC-ACE-2.1 read test
         for attribute_id in checkable_attributes(cluster_id, device_cluster_data, xml_cluster):
             attribute = Clusters.ClusterObjects.ALL_ATTRIBUTES[cluster_id][attribute_id]
@@ -301,8 +297,7 @@ class AccessChecker(MatterBaseTest, BasicCompositionTests):
             test_name = f'Subscribe access checker - {privilege}'
 
             try:
-                logging.info(f"Subscribing to attribute {attribute} on cluster {xml_cluster.name} on endpoint {
-                             endpoint_id} with privilege {privilege}")  # chipstack-ok
+                logging.info(f"Subscribing to attribute {attribute} cluster {xml_cluster.name} privilege {privilege}") # fmt: skip
 
                 # Subscribe to attribute using the same pattern as TC-IDM-4.3 step 2
                 # This establishes subscription and waits for priming report
@@ -323,10 +318,9 @@ class AccessChecker(MatterBaseTest, BasicCompositionTests):
                                                                          cluster_id=cluster_id, attribute_id=attribute_id),
                                           problem=f"Subscription activation failed - expected success with privilege {privilege}")
                         self.success = False
-                        logging.info(f"✗ Failed to establish subscription (expected success)")
+                        logging.info("✗ Failed to establish subscription (expected success)")
                     else:
-                        logging.info(f"✓ Successfully established subscription (ID: {
-                                     subscription.subscriptionId}) with privilege {privilege}")  # chipstack-ok
+                        logging.info(f"✓ Successfully established subscription (ID: {subscription.subscriptionId}) with privilege {privilege}") # fmt: skip
                 else:
                     # ERROR: Subscription succeeded but should have failed with
                     # UnsupportedAccess. We reached here because no exception was
@@ -337,7 +331,7 @@ class AccessChecker(MatterBaseTest, BasicCompositionTests):
                                                                      cluster_id=cluster_id, attribute_id=attribute_id),
                                       problem=f"Subscription succeeded but should have failed with privilege {privilege} (requires {spec_requires})")
                     self.success = False
-                    logging.info(f"✗ Subscription succeeded but should have failed")
+                    logging.info("✗ Subscription succeeded but should have failed")
 
                 # Clean up subscription
                 subscription.Shutdown()
@@ -362,7 +356,7 @@ class AccessChecker(MatterBaseTest, BasicCompositionTests):
                         self.success = False
                         logging.info(f"✗ Subscription failed with {e.status} (expected UnsupportedAccess)")
                     else:
-                        logging.info(f"✓ Subscription correctly failed with UnsupportedAccess")
+                        logging.info("✓ Subscription correctly failed with UnsupportedAccess")
 
             except ChipStackError as e:  # chipstack-ok
                 # Handle ChipStackError - some clusters/attributes don't support
@@ -371,8 +365,7 @@ class AccessChecker(MatterBaseTest, BasicCompositionTests):
                 # Common clusters: NetworkCommissioning, Camera AV Stream
                 # Management, Access Control, Operational Credentials.
                 if e.err == 0x00000580:  # INVALID_ACTION
-                    logging.warning(f"⚠ Skipping cluster {xml_cluster.name} attribute {
-                                    attribute} - subscription not supported (INVALID_ACTION)")  # chipstack-ok
+                    logging.warning(f"⚠ Skipping cluster {xml_cluster.name} attribute {attribute}")
                     continue  # Skip this attribute, continue with next attribute in cluster
                 else:
                     # Unexpected ChipStackError (not INVALID_ACTION)
