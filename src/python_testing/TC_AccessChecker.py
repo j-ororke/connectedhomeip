@@ -282,76 +282,82 @@ class AccessChecker(MatterBaseTest, BasicCompositionTests):
             Tests subscription access control by verifying subscriptions can be established.
             Follows TC-ACE-2.1 pattern but uses subscriptions instead of reads.
             Uses keepSubscriptions=False and reportInterval=(0, 30) as specified in requirements.
-            
+
             This implementation follows the pattern from TC-IDM-4.3 step 2 which successfully
             establishes subscriptions and verifies priming reports are received via subscription ID.
-            
+
             Note: Like TC-ACE-2.1, this loops through ALL checkable attributes in the cluster
             to provide complete access control validation coverage.
         """
         cluster_class = Clusters.ClusterObjects.ALL_CLUSTERS[cluster_id]
-        
+
         # Loop through all checkable attributes, consistent with TC-ACE-2.1 read test
         for attribute_id in checkable_attributes(cluster_id, device_cluster_data, xml_cluster):
             attribute = Clusters.ClusterObjects.ALL_ATTRIBUTES[cluster_id][attribute_id]
             attr_path = [(endpoint_id, attribute)]
-            
+
             spec_requires = xml_cluster.attributes[attribute_id].read_access
             test_name = f'Subscribe access checker - {privilege}'
-            
+
             try:
-                logging.info(f"Subscribing to attribute {attribute} on cluster {xml_cluster.name} (0x{cluster_id:X}) on endpoint {endpoint_id} with privilege {privilege}")
-                
+                logging.info(f"Subscribing to attribute {attribute} on cluster {xml_cluster.name} (0x{
+                             cluster_id:X}) on endpoint {endpoint_id} with privilege {privilege}")
+
                 # Subscribe to attribute using the same pattern as TC-IDM-4.3 step 2
                 # This establishes subscription and waits for priming report
                 subscription = await self.TH2.ReadAttribute(
                     nodeid=self.dut_node_id,
                     attributes=attr_path,
-                    reportInterval=(0, 30), 
+                    reportInterval=(0, 30),
                     keepSubscriptions=False,
                     fabricFiltered=False
                 )
-                
+
                 # Verify the subscription was successfully activated and priming report received
                 if operation_allowed(spec_requires, privilege):
                     # Should succeed
                     if subscription.subscriptionId is None:
-                        self.record_error(test_name=test_name, 
-                                        location=AttributePathLocation(endpoint_id=endpoint_id, cluster_id=cluster_id, attribute_id=attribute_id),
-                                        problem=f"Subscription activation failed - expected success with privilege {privilege}")
+                        self.record_error(test_name=test_name,
+                                          location=AttributePathLocation(endpoint_id=endpoint_id,
+                                                                         cluster_id=cluster_id, attribute_id=attribute_id),
+                                          problem=f"Subscription activation failed - expected success with privilege {privilege}")
                         self.success = False
                         logging.info(f"✗ Failed to establish subscription (expected success)")
                     else:
-                        logging.info(f"✓ Successfully established subscription (ID: {subscription.subscriptionId}) with privilege {privilege}")
+                        logging.info(f"✓ Successfully established subscription (ID: {
+                                     subscription.subscriptionId}) with privilege {privilege}")
                 else:
                     # ERROR: Subscription succeeded but should have failed with
                     # UnsupportedAccess. We reached here because no exception was
                     # thrown (privilege insufficient but subscription was
                     # allowed).
                     self.record_error(test_name=test_name,
-                                    location=AttributePathLocation(endpoint_id=endpoint_id, cluster_id=cluster_id, attribute_id=attribute_id),
-                                    problem=f"Subscription succeeded but should have failed with privilege {privilege} (requires {spec_requires})")
+                                      location=AttributePathLocation(endpoint_id=endpoint_id,
+                                                                     cluster_id=cluster_id, attribute_id=attribute_id),
+                                      problem=f"Subscription succeeded but should have failed with privilege {privilege} (requires {spec_requires})")
                     self.success = False
                     logging.info(f"✗ Subscription succeeded but should have failed")
-                
+
                 # Clean up subscription
                 subscription.Shutdown()
-                            
+
             except InteractionModelError as e:
                 # Subscription failed - check if this was expected
                 if operation_allowed(spec_requires, privilege):
                     # Should have succeeded but failed
                     self.record_error(test_name=test_name,
-                                    location=AttributePathLocation(endpoint_id=endpoint_id, cluster_id=cluster_id, attribute_id=attribute_id),
-                                    problem=f"Subscription failed with {e.status} but should have succeeded with privilege {privilege}")
+                                      location=AttributePathLocation(endpoint_id=endpoint_id,
+                                                                     cluster_id=cluster_id, attribute_id=attribute_id),
+                                      problem=f"Subscription failed with {e.status} but should have succeeded with privilege {privilege}")
                     self.success = False
                     logging.info(f"✗ Subscription failed with {e.status} (expected success)")
                 else:
                     # Should have failed - verify it's the right error
                     if e.status != Status.UnsupportedAccess:
                         self.record_error(test_name=test_name,
-                                        location=AttributePathLocation(endpoint_id=endpoint_id, cluster_id=cluster_id, attribute_id=attribute_id),
-                                        problem=f"Subscription failed with {e.status} but expected UnsupportedAccess for privilege {privilege}")
+                                          location=AttributePathLocation(endpoint_id=endpoint_id,
+                                                                         cluster_id=cluster_id, attribute_id=attribute_id),
+                                          problem=f"Subscription failed with {e.status} but expected UnsupportedAccess for privilege {privilege}")
                         self.success = False
                         logging.info(f"✗ Subscription failed with {e.status} (expected UnsupportedAccess)")
                     else:
@@ -364,22 +370,25 @@ class AccessChecker(MatterBaseTest, BasicCompositionTests):
                 # Common clusters: NetworkCommissioning, Camera AV Stream
                 # Management, Access Control, Operational Credentials.
                 if e.err == 0x00000580:  # INVALID_ACTION
-                    logging.warning(f"⚠ Skipping cluster {xml_cluster.name} attribute {attribute} - subscription not supported (INVALID_ACTION)")
+                    logging.warning(f"⚠ Skipping cluster {xml_cluster.name} attribute {
+                                    attribute} - subscription not supported (INVALID_ACTION)")
                     continue  # Skip this attribute, continue with next attribute in cluster
                 else:
                     # Unexpected ChipStackError (not INVALID_ACTION)
                     logging.error(f"Unexpected ChipStackError subscribing to cluster {xml_cluster.name}: {e}")
                     self.record_error(test_name=test_name,
-                                    location=AttributePathLocation(endpoint_id=endpoint_id, cluster_id=cluster_id, attribute_id=attribute_id),
-                                    problem=f"Unexpected ChipStackError during subscription: {e} (error code: 0x{e.err:08X})")
+                                      location=AttributePathLocation(endpoint_id=endpoint_id,
+                                                                     cluster_id=cluster_id, attribute_id=attribute_id),
+                                      problem=f"Unexpected ChipStackError during subscription: {e} (error code: 0x{e.err:08X})")
                     self.success = False
 
             # Handle other unexpected exceptions, not sure what they might be, but if they occur, we will catch them here
             except Exception as e:
                 logging.error(f"Unexpected exception subscribing to cluster {xml_cluster.name}: {type(e).__name__}: {e}")
                 self.record_error(test_name=test_name,
-                                location=AttributePathLocation(endpoint_id=endpoint_id, cluster_id=cluster_id, attribute_id=attribute_id),
-                                problem=f"Unexpected error during subscription: {type(e).__name__}: {e}")
+                                  location=AttributePathLocation(endpoint_id=endpoint_id,
+                                                                 cluster_id=cluster_id, attribute_id=attribute_id),
+                                  problem=f"Unexpected error during subscription: {type(e).__name__}: {e}")
                 self.success = False
 
     async def _run_write_access_test_for_cluster_privilege(self, endpoint_id, cluster_id, cluster, xml_cluster: XmlCluster, privilege: Clusters.AccessControl.Enums.AccessControlEntryPrivilegeEnum, wildcard_read):
@@ -575,6 +584,7 @@ class AccessChecker(MatterBaseTest, BasicCompositionTests):
     @async_test_body
     async def test_TC_ACE_2_4(self):
         await self.run_access_test(AccessTestType.SUBSCRIBE)
+
 
 if __name__ == "__main__":
     default_matter_test_main()
