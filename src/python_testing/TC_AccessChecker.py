@@ -297,7 +297,7 @@ class AccessChecker(MatterBaseTest, BasicCompositionTests):
             test_name = f'Subscribe access checker - {privilege}'
 
             try:
-                logging.info(f"Subscribing to attribute {attribute} cluster {xml_cluster.name} privilege {privilege}") # fmt: skip
+                logging.info(f"Subscribing to attribute {attribute} cluster {xml_cluster.name} privilege {privilege}")  # fmt: skip
 
                 # Subscribe to attribute using the same pattern as TC-IDM-4.3 step 2
                 # This establishes subscription and waits for priming report
@@ -320,7 +320,8 @@ class AccessChecker(MatterBaseTest, BasicCompositionTests):
                         self.success = False
                         logging.info("✗ Failed to establish subscription (expected success)")
                     else:
-                        logging.info(f"✓ Successfully established subscription (ID: {subscription.subscriptionId}) with privilege {privilege}") # fmt: skip
+                        logging.info(f"✓ Successfully established subscription (ID: {
+                                     subscription.subscriptionId}) with privilege {privilege}")  # fmt: skip
                 else:
                     # ERROR: Subscription succeeded but should have failed with
                     # UnsupportedAccess. We reached here because no exception was

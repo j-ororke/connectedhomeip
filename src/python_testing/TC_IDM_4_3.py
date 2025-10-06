@@ -47,7 +47,7 @@ from matter.clusters.Attribute import SubscriptionTransaction
 from matter.clusters.enum import MatterIntEnum
 from matter.testing.basic_composition import BasicCompositionTests
 from matter.testing.matter_testing import (MatterBaseTest, TestStep, async_test_body,
-                                         default_matter_test_main)
+                                           default_matter_test_main)
 from mobly import asserts, signals
 
 '''
@@ -82,7 +82,8 @@ class TC_IDM_4_3(MatterBaseTest, BasicCompositionTests):
     def fprint(self, text: str, background_color: str, padding: int = 0):
         double_space = "  " * padding
         padding_space = "\n" * (padding - 1)
-        print(f"{padding_space}{double_space}{self.BACKGROUND_COLORS.get(background_color, self.BACKGROUND_COLORS['reset'])}{text}{self.BACKGROUND_COLORS['reset']}{padding_space}") # fmt: skip
+        print(f"{padding_space}{double_space}{self.BACKGROUND_COLORS.get(background_color, self.BACKGROUND_COLORS['reset'])}{
+              text}{self.BACKGROUND_COLORS['reset']}{padding_space}")  # fmt: skip
 
     def steps_TC_IDM_4_3(self):
         return [TestStep(1, "DUT and TH activate the subscription for an attribute. Do not change the value of the attribute which has been subscribed.",
@@ -190,18 +191,18 @@ class TC_IDM_4_3(MatterBaseTest, BasicCompositionTests):
             0x31,   # NetworkCommissioning
             0x1F,   # AccessControl
             0x3E,   # OperationalCredentials
-            0x0551, # CameraAvStreamManagement
+            0x0551,  # CameraAvStreamManagement
         ]
-        
+
         # Skip attributes from clusters known to have subscription issues
         if hasattr(attribute, 'cluster_id') and attribute.cluster_id in non_subscribable_clusters:
             return False
-            
+
         # If attribute has quality metadata, check if it's readable (readable implies subscribable)
         if hasattr(attribute, 'attribute_type'):
             # Standard readable attributes should be subscribable
             return True
-            
+
         return True  # Default to assuming it's subscribable
 
     async def check_attribute_read_for_type(self, attribute_type: type, return_objects: bool = False) -> None:
@@ -214,7 +215,7 @@ class TC_IDM_4_3(MatterBaseTest, BasicCompositionTests):
             if all_types:
                 # Filter for subscribable attributes
                 subscribable_attrs = [attr for attr in all_types if self.is_attribute_subscribable(attr)]
-                
+
                 if subscribable_attrs:
                     chosen_attribute = subscribable_attrs[0]
                     chosen_cluster = Clusters.ClusterObjects.ALL_CLUSTERS[chosen_attribute.cluster_id]
