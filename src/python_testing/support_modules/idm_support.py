@@ -244,7 +244,12 @@ class IDMBaseTest(MatterBaseTest):
     # Attribute Verification Functions
     # ========================================================================
 
-    @staticmethod
+    def is_valid_uint32_value(var):
+        return isinstance(var, int) and 0 <= var <= 0xFFFFFFFF
+
+    def is_valid_uint16_value(var):
+        return isinstance(var, int) and 0 <= var <= 0xFFFF
+
     def verify_attribute_exists(sub, cluster, attribute, ep: int = ROOT_NODE_ENDPOINT_ID):
         """Verify that an attribute exists in a subscription or read response.
 
