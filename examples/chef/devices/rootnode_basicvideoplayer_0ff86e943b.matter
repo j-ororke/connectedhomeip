@@ -359,6 +359,8 @@ fabric_scoped struct WebRTCSessionStruct {
   nullable int16u videoStreamID = 4;
   nullable int16u audioStreamID = 5;
   boolean metadataEnabled = 6;
+  optional int16u videoStreams[] = 7;
+  optional int16u audioStreams[] = 8;
   fabric_idx fabricIndex = 254;
 }
 
@@ -2002,7 +2004,7 @@ cluster TargetNavigator = 1285 {
   info event TargetUpdated = 0 {
     TargetInfoStruct targetList[] = 0;
     int8u currentTarget = 1;
-    octet_string data = 2;
+    long_octet_string data = 2;
   }
 
   readonly attribute TargetInfoStruct targetList[] = 0;

@@ -336,6 +336,9 @@ NSString * MTRClusterNameForID(MTRClusterIDType clusterID)
     case MTRClusterIDTypeSoilMeasurementID:
         result = @"SoilMeasurement";
         break;
+    case MTRClusterIDTypeAmbientContextSensingID:
+        result = @"AmbientContextSensing";
+        break;
     case MTRClusterIDTypeWiFiNetworkManagementID:
         result = @"WiFiNetworkManagement";
         break;
@@ -3773,6 +3776,18 @@ NSString * MTRAttributeNameForID(MTRClusterIDType clusterID, MTRAttributeIDType 
 
         case MTRAttributeIDTypeClusterGroupcastAttributeMaxMembershipCountID:
             result = @"MaxMembershipCount";
+            break;
+
+        case MTRAttributeIDTypeClusterGroupcastAttributeMaxMcastAddrCountID:
+            result = @"MaxMcastAddrCount";
+            break;
+
+        case MTRAttributeIDTypeClusterGroupcastAttributeUsedMcastAddrCountID:
+            result = @"UsedMcastAddrCount";
+            break;
+
+        case MTRAttributeIDTypeClusterGroupcastAttributeFabricUnderTestID:
+            result = @"FabricUnderTest";
             break;
 
         case MTRAttributeIDTypeClusterGroupcastAttributeGeneratedCommandListID:
@@ -7406,6 +7421,78 @@ NSString * MTRAttributeNameForID(MTRClusterIDType clusterID, MTRAttributeIDType 
         }
         break;
 
+    case MTRClusterIDTypeAmbientContextSensingID:
+
+        switch (attributeID) {
+
+            // Cluster AmbientContextSensing attributes
+        case MTRAttributeIDTypeClusterAmbientContextSensingAttributeHumanActivityDetectedID:
+            result = @"HumanActivityDetected";
+            break;
+
+        case MTRAttributeIDTypeClusterAmbientContextSensingAttributeObjectIdentifiedID:
+            result = @"ObjectIdentified";
+            break;
+
+        case MTRAttributeIDTypeClusterAmbientContextSensingAttributeAudioContextDetectedID:
+            result = @"AudioContextDetected";
+            break;
+
+        case MTRAttributeIDTypeClusterAmbientContextSensingAttributeAmbientContextTypeID:
+            result = @"AmbientContextType";
+            break;
+
+        case MTRAttributeIDTypeClusterAmbientContextSensingAttributeAmbientContextTypeSupportedID:
+            result = @"AmbientContextTypeSupported";
+            break;
+
+        case MTRAttributeIDTypeClusterAmbientContextSensingAttributeSimultaneousDetectionLimitID:
+            result = @"SimultaneousDetectionLimit";
+            break;
+
+        case MTRAttributeIDTypeClusterAmbientContextSensingAttributeObjectCountReachedID:
+            result = @"ObjectCountReached";
+            break;
+
+        case MTRAttributeIDTypeClusterAmbientContextSensingAttributeHoldTimeID:
+            result = @"HoldTime";
+            break;
+
+        case MTRAttributeIDTypeClusterAmbientContextSensingAttributeHoldTimeLimitsID:
+            result = @"HoldTimeLimits";
+            break;
+
+        case MTRAttributeIDTypeClusterAmbientContextSensingAttributePredictedActivityID:
+            result = @"PredictedActivity";
+            break;
+
+        case MTRAttributeIDTypeClusterAmbientContextSensingAttributeGeneratedCommandListID:
+            result = @"GeneratedCommandList";
+            break;
+
+        case MTRAttributeIDTypeClusterAmbientContextSensingAttributeAcceptedCommandListID:
+            result = @"AcceptedCommandList";
+            break;
+
+        case MTRAttributeIDTypeClusterAmbientContextSensingAttributeAttributeListID:
+            result = @"AttributeList";
+            break;
+
+        case MTRAttributeIDTypeClusterAmbientContextSensingAttributeFeatureMapID:
+            result = @"FeatureMap";
+            break;
+
+        case MTRAttributeIDTypeClusterAmbientContextSensingAttributeClusterRevisionID:
+            result = @"ClusterRevision";
+            break;
+
+        default:
+            // Not a known AmbientContextSensing attribute.
+            result = [NSString stringWithFormat:@"<Unknown attributeID %u>", attributeID];
+            break;
+        }
+        break;
+
     case MTRClusterIDTypeWiFiNetworkManagementID:
 
         switch (attributeID) {
@@ -10650,12 +10737,12 @@ NSString * MTRRequestCommandNameForID(MTRClusterIDType clusterID, MTRCommandIDTy
             result = @"UpdateGroupKey";
             break;
 
-        case MTRCommandIDTypeClusterGroupcastCommandExpireGracePeriodID:
-            result = @"ExpireGracePeriod";
-            break;
-
         case MTRCommandIDTypeClusterGroupcastCommandConfigureAuxiliaryACLID:
             result = @"ConfigureAuxiliaryACL";
+            break;
+
+        case MTRCommandIDTypeClusterGroupcastCommandGroupcastTestingID:
+            result = @"GroupcastTesting";
             break;
 
         default:
@@ -11495,6 +11582,16 @@ NSString * MTRRequestCommandNameForID(MTRClusterIDType clusterID, MTRCommandIDTy
         break;
 
     case MTRClusterIDTypeSoilMeasurementID:
+
+        switch (commandID) {
+
+        default:
+            result = [NSString stringWithFormat:@"<Unknown commandID %u>", commandID];
+            break;
+        }
+        break;
+
+    case MTRClusterIDTypeAmbientContextSensingID:
 
         switch (commandID) {
 
@@ -13834,6 +13931,16 @@ NSString * MTRResponseCommandNameForID(MTRClusterIDType clusterID, MTRCommandIDT
         }
         break;
 
+    case MTRClusterIDTypeAmbientContextSensingID:
+
+        switch (commandID) {
+
+        default:
+            result = [NSString stringWithFormat:@"<Unknown commandID %u>", commandID];
+            break;
+        }
+        break;
+
     case MTRClusterIDTypeWiFiNetworkManagementID:
 
         switch (commandID) {
@@ -15247,6 +15354,11 @@ NSString * MTREventNameForID(MTRClusterIDType clusterID, MTREventIDType eventID)
 
         switch (eventID) {
 
+            // Cluster Groupcast events
+        case MTREventIDTypeClusterGroupcastEventGroupcastTestingID:
+            result = @"GroupcastTesting";
+            break;
+
         default:
             result = [NSString stringWithFormat:@"<Unknown eventID %u>", eventID];
             break;
@@ -15964,6 +16076,21 @@ NSString * MTREventNameForID(MTRClusterIDType clusterID, MTREventIDType eventID)
         }
         break;
 
+    case MTRClusterIDTypeAmbientContextSensingID:
+
+        switch (eventID) {
+
+            // Cluster AmbientContextSensing events
+        case MTREventIDTypeClusterAmbientContextSensingEventAmbientContextDetectedID:
+            result = @"AmbientContextDetected";
+            break;
+
+        default:
+            result = [NSString stringWithFormat:@"<Unknown eventID %u>", eventID];
+            break;
+        }
+        break;
+
     case MTRClusterIDTypeWiFiNetworkManagementID:
 
         switch (eventID) {
@@ -16239,6 +16366,11 @@ NSString * MTREventNameForID(MTRClusterIDType clusterID, MTREventIDType eventID)
     case MTRClusterIDTypeChimeID:
 
         switch (eventID) {
+
+            // Cluster Chime events
+        case MTREventIDTypeClusterChimeEventChimeStartedPlayingID:
+            result = @"ChimeStartedPlaying";
+            break;
 
         default:
             result = [NSString stringWithFormat:@"<Unknown eventID %u>", eventID];
