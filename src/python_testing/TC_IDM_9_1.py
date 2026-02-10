@@ -36,9 +36,6 @@
 # === END CI TEST ARGUMENTS ===
 
 import logging
-import xml.etree.ElementTree as ET
-from pathlib import Path
-from typing import Optional
 
 from mobly import asserts
 
@@ -46,11 +43,10 @@ import matter.clusters as Clusters
 from matter.interaction_model import InteractionModelError, Status
 from matter.testing.basic_composition import BasicCompositionTests
 from matter.testing.decorators import async_test_body
-from matter.testing.global_attribute_ids import GlobalAttributeIds, is_standard_attribute_id, is_standard_cluster_id
+from matter.testing.global_attribute_ids import is_standard_cluster_id
 from matter.testing.matter_testing import MatterBaseTest, TestStep
 from matter.testing.spec_parsing import parse_attribute_constraints
 from matter.testing.runner import default_matter_test_main
-from matter.tlv import uint
 from support_modules.idm_support import IDMBaseTest
 
 log = logging.getLogger(__name__)

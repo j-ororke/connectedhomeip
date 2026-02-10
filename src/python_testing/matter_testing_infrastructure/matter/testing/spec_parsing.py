@@ -1775,7 +1775,7 @@ def parse_attribute_constraints(xml_clusters: dict[uint, XmlCluster], cluster_id
         with xml_file.open('r', encoding='utf-8') as f:
             tree = ElementTree.parse(f)
             root = tree.getroot()
-            
+
         # Find the attribute element - try different hex formats
         attr_elem = None
         search_ids = [
