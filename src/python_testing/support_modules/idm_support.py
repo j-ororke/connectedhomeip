@@ -194,6 +194,7 @@ class IDMBaseTest(MatterBaseTest):
     # Attribute Path Utilities
     # ========================================================================
 
+    @staticmethod
     def get_typed_attribute_path(attribute, ep: int = ROOT_NODE_ENDPOINT_ID):
         """Create a TypedAttributePath from an attribute.
 
