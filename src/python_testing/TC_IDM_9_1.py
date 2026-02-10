@@ -48,288 +48,14 @@ from matter.testing.basic_composition import BasicCompositionTests
 from matter.testing.decorators import async_test_body
 from matter.testing.global_attribute_ids import GlobalAttributeIds, is_standard_attribute_id, is_standard_cluster_id
 from matter.testing.matter_testing import MatterBaseTest, TestStep
+from matter.testing.spec_parsing import parse_attribute_constraints
 from matter.testing.runner import default_matter_test_main
 from matter.tlv import uint
+from support_modules.idm_support import IDMBaseTest
 
 log = logging.getLogger(__name__)
 
-
-def checkable_attributes(cluster_id, cluster, xml_cluster) -> list[uint]:
-    """Get list of attributes that exist on the DUT and have spec/codegen data available."""
-    all_attrs = cluster[GlobalAttributeIds.ATTRIBUTE_LIST_ID]
-
-    checkable_attrs = []
-    for attr_id in all_attrs:
-        if not is_standard_attribute_id(attr_id):
-            continue
-
-        if attr_id not in xml_cluster.attributes:
-            continue
-
-        if attr_id not in Clusters.ClusterObjects.ALL_ATTRIBUTES[cluster_id]:
-            continue
-
-        checkable_attrs.append(attr_id)
-
-    return checkable_attrs
-
-
-class TC_IDM_9_1(BasicCompositionTests):
-    def _get_xml_path(self, cluster_id: int) -> Optional[str]:
-        """Get the XML file path for a cluster."""
-        xml_cluster = self.xml_clusters.get(cluster_id)
-        if not xml_cluster:
-            return None
-
-        # Get spec version from data model
-        dm = self._get_dm()
-        spec_version = dm.dirname
-
-        # Special mappings for non-standard XML filenames
-        special_mappings = {
-            "On/Off": "OnOff.xml",
-            "Time Format Localization": "LocalizationTimeFormat.xml",
-            "Unit Localization": "LocalizationUnit.xml",
-            "Access Control": "ACL-Cluster.xml",
-            "OTA Software Update Requestor": "OTARequestor.xml",
-            "Pump Configuration and Control": "PumpConfigurationControl.xml",
-            "Valve Configuration and Control": "ValveConfigurationControl.xml",
-            "HEPA Filter Monitoring": "ResourceMonitoring.xml",
-            "Activated Carbon Filter Monitoring": "ResourceMonitoring.xml",
-        }
-
-        # Build list of possible filenames
-        if xml_cluster.name in special_mappings:
-            possible_names = [special_mappings[xml_cluster.name]]
-        else:
-            cluster_name_no_spaces = xml_cluster.name.replace(" ", "")
-            cluster_name_with_dashes = xml_cluster.name.replace(" ", "-")
-            possible_names = [
-                f"{cluster_name_no_spaces}Cluster.xml",
-                f"{cluster_name_no_spaces}.xml",
-                f"{cluster_name_with_dashes}-Cluster.xml",
-                f"{cluster_name_no_spaces}-Cluster.xml",
-            ]
-
-        # Find XML file dynamically from script location
-        script_dir = Path(__file__).parent
-        repo_root = script_dir.parent.parent
-        xml_dir = repo_root / 'data_model' / spec_version / 'clusters'
-
-        for possible_name in possible_names:
-            file_path = xml_dir / possible_name
-            if file_path.exists():
-                return str(file_path)
-
-        return None
-
-    def _parse_constraint_references(self, elem, constraint_dict: dict, prefix: str):
-        """Parse dynamic constraint references (attribute/field references)."""
-        attr_ref = elem.find('./attribute')
-        if attr_ref is not None and 'name' in attr_ref.attrib:
-            ref_attr_name = attr_ref.attrib['name']
-            field_ref = attr_ref.find('./field')
-
-            if field_ref is not None and 'name' in field_ref.attrib:
-                constraint_dict[f'{prefix}AttributeRef'] = {
-                    'attribute': ref_attr_name,
-                    'field': field_ref.attrib['name']
-                }
-            else:
-                constraint_dict[f'{prefix}AttributeRef'] = {'attribute': ref_attr_name}
-
-    def _parse_attribute_constraints(self, cluster_id: int, attribute_id: int) -> dict:
-        """Parse constraint information from XML for a specific attribute."""
-        xml_path = self._get_xml_path(cluster_id)
-        if not xml_path:
-            return {}
-
-        try:
-            tree = ET.parse(xml_path)
-            root = tree.getroot()
-
-            # Find the attribute element - try different hex formats
-            attr_elem = None
-            search_ids = [
-                f"0x{attribute_id:04X}",
-                f"0x{attribute_id:X}",
-            ]
-
-            for search_id in search_ids:
-                attr_elem = root.find(f".//attribute[@id='{search_id}']")
-                if attr_elem is not None:
-                    break
-
-            if not attr_elem:
-                return {}
-
-            # Parse constraint element
-            constraint_elem = attr_elem.find('./constraint')
-            if constraint_elem is None:
-                return {}
-
-            constraints = {}
-
-            # Parse min/max/between constraints
-            if constraint_elem.find('./min') is not None:
-                min_elem = constraint_elem.find('./min')
-                if 'value' in min_elem.attrib:
-                    constraints['min'] = int(min_elem.attrib['value'])
-                else:
-                    self._parse_constraint_references(min_elem, constraints, 'min')
-
-            if constraint_elem.find('./max') is not None:
-                max_elem = constraint_elem.find('./max')
-                if 'value' in max_elem.attrib:
-                    constraints['max'] = int(max_elem.attrib['value'])
-                else:
-                    self._parse_constraint_references(max_elem, constraints, 'max')
-
-            between_elem = constraint_elem.find('./between')
-            if between_elem is not None:
-                from_elem = between_elem.find('./from')
-                to_elem = between_elem.find('./to')
-
-                if from_elem is not None:
-                    if 'value' in from_elem.attrib:
-                        constraints['min'] = int(from_elem.attrib['value'])
-                    else:
-                        self._parse_constraint_references(from_elem, constraints, 'min')
-
-                if to_elem is not None:
-                    if 'value' in to_elem.attrib:
-                        constraints['max'] = int(to_elem.attrib['value'])
-                    else:
-                        self._parse_constraint_references(to_elem, constraints, 'max')
-
-            # Parse string length constraints
-            for constraint_type in ['minLength', 'maxLength']:
-                elem = constraint_elem.find(f'./{constraint_type}')
-                if elem is not None and 'value' in elem.attrib:
-                    constraints[constraint_type] = int(elem.attrib['value'])
-
-            # Parse list count constraints
-            for constraint_type, xml_tag in [('minCount', 'minCount'), ('maxCount', 'maxCount')]:
-                elem = constraint_elem.find(f'./{xml_tag}')
-                if elem is not None:
-                    if 'value' in elem.attrib:
-                        constraints[constraint_type] = int(elem.attrib['value'])
-                    else:
-                        self._parse_constraint_references(elem, constraints, constraint_type.replace('Count', ''))
-
-            return constraints
-
-        except Exception as e:
-            log.warning(f"Exception parsing constraints for cluster 0x{cluster_id:04X} attr 0x{attribute_id:04X}: {e}")
-            return {}
-
-    async def _resolve_dynamic_constraint(self, cluster_class, endpoint_id: int, ref_dict: dict) -> Optional[int]:
-        """Resolve a dynamic constraint reference by reading the attribute value."""
-        ref_attr_name = ref_dict['attribute']
-        ref_field_name = ref_dict.get('field')
-
-        ref_attr = getattr(cluster_class.Attributes, ref_attr_name, None)
-        if not ref_attr:
-            return None
-
-        ref_value = await self.read_single_attribute_check_success(
-            endpoint=endpoint_id,
-            cluster=cluster_class,
-            attribute=ref_attr
-        )
-
-        if ref_field_name:
-            python_field_name = ref_field_name[0].lower() + ref_field_name[1:]
-            if hasattr(ref_value, python_field_name):
-                return getattr(ref_value, python_field_name)
-            return None
-
-        return ref_value if isinstance(ref_value, (int, float)) else None
-
-    def _generate_constraint_violation(self, attr_info: dict, constraints: dict):
-        """Generate a test value that violates the given constraints."""
-        datatype = attr_info['datatype']
-
-        # String constraints
-        if 'string' in datatype or 'octstr' in datatype:
-            if 'maxLength' in constraints:
-                return 'x' * (constraints['maxLength'] + 1)
-            if 'minLength' in constraints:
-                return 'x' * max(0, constraints['minLength'] - 1)
-
-        # List constraints
-        if 'list' in datatype:
-            if 'maxCount' in constraints:
-                return [{}] * (constraints['maxCount'] + 1)
-            if 'minCount' in constraints:
-                count = max(0, constraints['minCount'] - 1)
-                return [{}] * count if count > 0 else []
-
-        # Numeric-like constraints (int, uint, percent, elapsed-s, temperature, etc.)
-        if 'max' in constraints:
-            return constraints['max'] + 1
-        if 'min' in constraints:
-            return max(0, constraints['min'] - 1)
-
-        return None
-
-    async def _test_attribute_constraint(self, attr_info: dict, constraints: dict) -> bool:
-        """Test a single attribute's constraint. Returns True if test passed, False otherwise."""
-        # Resolve dynamic constraints if present
-        if 'minAttributeRef' in constraints or 'maxAttributeRef' in constraints:
-            cluster_class = attr_info['cluster_class']
-
-            if 'minAttributeRef' in constraints:
-                constraints['min'] = await self._resolve_dynamic_constraint(
-                    cluster_class, attr_info['endpoint_id'], constraints['minAttributeRef']
-                )
-
-            if 'maxAttributeRef' in constraints:
-                constraints['max'] = await self._resolve_dynamic_constraint(
-                    cluster_class, attr_info['endpoint_id'], constraints['maxAttributeRef']
-                )
-
-        # Generate constraint violation
-        test_value = self._generate_constraint_violation(attr_info, constraints)
-        if test_value is None:
-            return None  # Unsupported constraint type
-
-        # Read original value
-        original_value = await self.read_single_attribute_check_success(
-            endpoint=attr_info['endpoint_id'],
-            cluster=attr_info['cluster_class'],
-            attribute=attr_info['attribute']
-        )
-
-        # Attempt to write violating value
-        attr_obj = attr_info['attribute'](test_value)
-        write_result = await self.default_controller.WriteAttribute(
-            nodeId=self.dut_node_id,
-            attributes=[(attr_info['endpoint_id'], attr_obj)]
-        )
-        result_status = write_result[0].Status
-
-        if result_status == Status.ConstraintError:
-            # Verify value wasn't set to the violating value
-            new_value = await self.read_single_attribute_check_success(
-                endpoint=attr_info['endpoint_id'],
-                cluster=attr_info['cluster_class'],
-                attribute=attr_info['attribute']
-            )
-
-            if new_value == test_value:
-                log.error(f"FAIL: {attr_info['cluster_name']}.{attr_info['attribute_name']} "
-                          f"was set to invalid value {test_value} despite CONSTRAINT_ERROR")
-                return False
-
-            log.info(f"PASS: {attr_info['cluster_name']}.{attr_info['attribute_name']} "
-                     f"constraint properly enforced (original={original_value}, rejected={test_value})")
-            return True
-
-        log.error(f"FAIL: {attr_info['cluster_name']}.{attr_info['attribute_name']} "
-                  f"got {result_status} instead of CONSTRAINT_ERROR for value {test_value}")
-        return False
-
+class TC_IDM_9_1(IDMBaseTest, BasicCompositionTests):
     def steps_TC_IDM_9_1(self) -> list[TestStep]:
         return [
             TestStep(0, "Commissioning, already done", is_commissioning=True),
@@ -434,6 +160,10 @@ class TC_IDM_9_1(BasicCompositionTests):
         self.step(2)
         log.info("Testing writable attributes for constraint errors")
 
+        # Get spec version for constraint parsing
+        dm = self._get_dm()
+        spec_version = dm
+
         # Collect writable attributes from DUT
         writable_attributes = []
         for endpoint_id, endpoint in self.endpoints_tlv.items():
@@ -446,7 +176,7 @@ class TC_IDM_9_1(BasicCompositionTests):
                 xml_cluster = self.xml_clusters[cluster_id]
                 cluster_class = Clusters.ClusterObjects.ALL_CLUSTERS[cluster_id]
 
-                for attribute_id in checkable_attributes(cluster_id, device_cluster_data, xml_cluster):
+                for attribute_id in self.checkable_attributes(cluster_id, device_cluster_data, xml_cluster):
                     xml_attr = xml_cluster.attributes[attribute_id]
 
                     if xml_attr.write_access != Clusters.AccessControl.Enums.AccessControlEntryPrivilegeEnum.kUnknownEnumValue:
@@ -469,14 +199,14 @@ class TC_IDM_9_1(BasicCompositionTests):
         failed_attributes = []
 
         for attr_info in writable_attributes:
-            constraints = self._parse_attribute_constraints(attr_info['cluster_id'], attr_info['attribute_id'])
+            constraints = parse_attribute_constraints(self.xml_clusters, attr_info['cluster_id'], attr_info['attribute_id'], spec_version)
 
             if not constraints:
                 skipped_count += 1
                 continue
 
             try:
-                result = await self._test_attribute_constraint(attr_info, constraints)
+                result = await self.check_attribute_constraint(attr_info, constraints)
                 if result is None:
                     skipped_count += 1
                 elif result is False:

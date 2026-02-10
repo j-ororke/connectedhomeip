@@ -32,7 +32,9 @@ from matter.clusters.Attribute import AttributePath, TypedAttributePath
 from matter.exceptions import ChipStackError
 from matter.interaction_model import InteractionModelError, Status
 from matter.testing import global_attribute_ids
+from matter.testing.global_attribute_ids import GlobalAttributeIds, is_standard_attribute_id
 from matter.testing.matter_testing import MatterBaseTest
+from matter.tlv import uint
 
 log = logging.getLogger(__name__)
 
@@ -192,7 +194,6 @@ class IDMBaseTest(MatterBaseTest):
     # Attribute Path Utilities
     # ========================================================================
 
-    @staticmethod
     def get_typed_attribute_path(attribute, ep: int = ROOT_NODE_ENDPOINT_ID):
         """Create a TypedAttributePath from an attribute.
 
@@ -370,6 +371,132 @@ class IDMBaseTest(MatterBaseTest):
                     ClusterObjects.ALL_CLUSTERS[cluster].Attributes.AttributeList.attribute_id])
                 asserts.assert_equal(returned_attrs, attr_list,
                                      f"Mismatch for {cluster} at endpoint {endpoint}")
+
+    async def resolve_dynamic_constraint(self, cluster_class, endpoint_id: int, ref_dict: dict) -> Optional[int]:
+        """Resolve a dynamic constraint reference by reading the attribute value."""
+        ref_attr_name = ref_dict['attribute']
+        ref_field_name = ref_dict.get('field')
+
+        ref_attr = getattr(cluster_class.Attributes, ref_attr_name, None)
+        if not ref_attr:
+            return None
+
+        ref_value = await self.read_single_attribute_check_success(
+            endpoint=endpoint_id,
+            cluster=cluster_class,
+            attribute=ref_attr
+        )
+
+        if ref_field_name:
+            python_field_name = ref_field_name[0].lower() + ref_field_name[1:]
+            if hasattr(ref_value, python_field_name):
+                return getattr(ref_value, python_field_name)
+            return None
+
+        return ref_value if isinstance(ref_value, (int, float)) else None
+
+    def generate_constraint_violation(self, attr_info: dict, constraints: dict):
+        """Generate a test value that violates the given constraints."""
+        datatype = attr_info['datatype']
+
+        # String constraints
+        if 'string' in datatype or 'octstr' in datatype:
+            if 'maxLength' in constraints:
+                return 'x' * (constraints['maxLength'] + 1)
+            if 'minLength' in constraints:
+                return 'x' * max(0, constraints['minLength'] - 1)
+
+        # List constraints
+        if 'list' in datatype:
+            if 'maxCount' in constraints:
+                return [{}] * (constraints['maxCount'] + 1)
+            if 'minCount' in constraints:
+                count = max(0, constraints['minCount'] - 1)
+                return [{}] * count if count > 0 else []
+
+        # Numeric-like constraints (int, uint, percent, elapsed-s, temperature, etc.)
+        if 'max' in constraints:
+            return constraints['max'] + 1
+        if 'min' in constraints:
+            return max(0, constraints['min'] - 1)
+
+        return None
+
+    async def check_attribute_constraint(self, attr_info: dict, constraints: dict) -> bool:
+        """Test a single attribute's constraint. Returns True if test passed, False otherwise."""
+        # Resolve dynamic constraints if present
+        if 'minAttributeRef' in constraints or 'maxAttributeRef' in constraints:
+            cluster_class = attr_info['cluster_class']
+
+            if 'minAttributeRef' in constraints:
+                constraints['min'] = await self.resolve_dynamic_constraint(
+                    cluster_class, attr_info['endpoint_id'], constraints['minAttributeRef']
+                )
+
+            if 'maxAttributeRef' in constraints:
+                constraints['max'] = await self.resolve_dynamic_constraint(
+                    cluster_class, attr_info['endpoint_id'], constraints['maxAttributeRef']
+                )
+
+        # Generate constraint violation
+        test_value = self.generate_constraint_violation(attr_info, constraints)
+        if test_value is None:
+            return None  # Unsupported constraint type
+
+        # Read original value
+        original_value = await self.read_single_attribute_check_success(
+            endpoint=attr_info['endpoint_id'],
+            cluster=attr_info['cluster_class'],
+            attribute=attr_info['attribute']
+        )
+
+        # Attempt to write violating value
+        attr_obj = attr_info['attribute'](test_value)
+        write_result = await self.default_controller.WriteAttribute(
+            nodeId=self.dut_node_id,
+            attributes=[(attr_info['endpoint_id'], attr_obj)]
+        )
+        result_status = write_result[0].Status
+
+        if result_status == Status.ConstraintError:
+            # Verify value wasn't set to the violating value
+            new_value = await self.read_single_attribute_check_success(
+                endpoint=attr_info['endpoint_id'],
+                cluster=attr_info['cluster_class'],
+                attribute=attr_info['attribute']
+            )
+
+            if new_value == test_value:
+                log.error(f"FAIL: {attr_info['cluster_name']}.{attr_info['attribute_name']} "
+                          f"was set to invalid value {test_value} despite CONSTRAINT_ERROR")
+                return False
+
+            log.info(f"PASS: {attr_info['cluster_name']}.{attr_info['attribute_name']} "
+                     f"constraint properly enforced (original={original_value}, rejected={test_value})")
+            return True
+
+        log.error(f"FAIL: {attr_info['cluster_name']}.{attr_info['attribute_name']} "
+                  f"got {result_status} instead of CONSTRAINT_ERROR for value {test_value}")
+        return False
+
+    def checkable_attributes(self, cluster_id, cluster, xml_cluster) -> list[uint]:
+        """Get list of attributes that exist on the DUT and have spec/codegen data available."""
+        all_attrs = cluster[GlobalAttributeIds.ATTRIBUTE_LIST_ID]
+
+        checkable_attrs = []
+        for attr_id in all_attrs:
+            if not is_standard_attribute_id(attr_id):
+                continue
+
+            if attr_id not in xml_cluster.attributes:
+                continue
+
+            if attr_id not in Clusters.ClusterObjects.ALL_ATTRIBUTES[cluster_id]:
+                continue
+
+            checkable_attrs.append(attr_id)
+
+        return checkable_attrs
 
     # ========================================================================
     # Attribute Reading Helper Functions
