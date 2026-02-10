@@ -51,6 +51,7 @@ from support_modules.idm_support import IDMBaseTest
 
 log = logging.getLogger(__name__)
 
+
 class TC_IDM_9_1(IDMBaseTest, BasicCompositionTests):
     def steps_TC_IDM_9_1(self) -> list[TestStep]:
         return [
@@ -195,7 +196,8 @@ class TC_IDM_9_1(IDMBaseTest, BasicCompositionTests):
         failed_attributes = []
 
         for attr_info in writable_attributes:
-            constraints = parse_attribute_constraints(self.xml_clusters, attr_info['cluster_id'], attr_info['attribute_id'], spec_version)
+            constraints = parse_attribute_constraints(
+                self.xml_clusters, attr_info['cluster_id'], attr_info['attribute_id'], spec_version)
 
             if not constraints:
                 skipped_count += 1

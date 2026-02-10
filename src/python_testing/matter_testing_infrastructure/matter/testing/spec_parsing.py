@@ -1688,14 +1688,15 @@ def dm_from_spec_version(specification_version: uint) -> PrebuiltDataModelDirect
 
     return version_to_dm[specification_version]
 
+
 def get_xml_path(xml_clusters: dict[uint, XmlCluster], cluster_id: int, spec_version: PrebuiltDataModelDirectory) -> Optional[Traversable]:
     """Get the XML file path for a cluster.
-    
+
     Args:
         xml_clusters: Dictionary of cluster ID to XmlCluster objects
         cluster_id: The cluster ID to find XML for
         spec_version: The PrebuiltDataModelDirectory for the spec version
-        
+
     Returns:
         Traversable object pointing to the XML file, or None if not found
     """
@@ -1739,6 +1740,7 @@ def get_xml_path(xml_clusters: dict[uint, XmlCluster], cluster_id: int, spec_ver
 
     return None
 
+
 def parse_constraint_references(elem, constraint_dict: dict, prefix: str):
     """Parse dynamic constraint references (attribute/field references)."""
     attr_ref = elem.find('./attribute')
@@ -1754,15 +1756,16 @@ def parse_constraint_references(elem, constraint_dict: dict, prefix: str):
         else:
             constraint_dict[f'{prefix}AttributeRef'] = {'attribute': ref_attr_name}
 
+
 def parse_attribute_constraints(xml_clusters: dict[uint, XmlCluster], cluster_id: int, attribute_id: int, spec_version: PrebuiltDataModelDirectory) -> dict:
     """Parse constraint information from XML for a specific attribute.
-    
+
     Args:
         xml_clusters: Dictionary of cluster ID to XmlCluster objects
         cluster_id: The cluster ID containing the attribute
         attribute_id: The attribute ID to parse constraints for
         spec_version: The PrebuiltDataModelDirectory for the spec version
-        
+
     Returns:
         Dictionary of constraint information (min, max, minLength, maxLength, etc.)
     """
