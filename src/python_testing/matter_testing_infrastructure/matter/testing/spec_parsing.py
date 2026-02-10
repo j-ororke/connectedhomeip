@@ -1700,7 +1700,7 @@ def get_xml_path(xml_clusters: dict[uint, XmlCluster], cluster_id: int, spec_ver
     Returns:
         Traversable object pointing to the XML file, or None if not found
     """
-    xml_cluster = xml_clusters.get(cluster_id)
+    xml_cluster = xml_clusters.get(uint(cluster_id))
     if not xml_cluster:
         return None
 
@@ -1802,15 +1802,15 @@ def parse_attribute_constraints(xml_clusters: dict[uint, XmlCluster], cluster_id
         constraints = {}
 
         # Parse min/max/between constraints
-        if constraint_elem.find('./min') is not None:
-            min_elem = constraint_elem.find('./min')
+        min_elem = constraint_elem.find('./min')
+        if min_elem is not None:
             if 'value' in min_elem.attrib:
                 constraints['min'] = int(min_elem.attrib['value'])
             else:
                 parse_constraint_references(min_elem, constraints, 'min')
 
-        if constraint_elem.find('./max') is not None:
-            max_elem = constraint_elem.find('./max')
+        max_elem = constraint_elem.find('./max')
+        if max_elem is not None:
             if 'value' in max_elem.attrib:
                 constraints['max'] = int(max_elem.attrib['value'])
             else:
