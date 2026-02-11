@@ -1519,8 +1519,8 @@ class MatterBaseTest(base_test.BaseTestClass):
 
                 # Wait for the monitor thread to remove the flag file
                 # The monitor deletes the flag file AFTER the restart completes, so this ensures
-                # the app has fully restarted and is ready before we continue
-                timeout = 10.0  # Increased timeout to allow for full app reboot
+                # the app has fully rebooted and is ready before we continue
+                timeout = 30.0  # Increased timeout to allow for full app reboot
                 start_time = time.time()
                 while os.path.exists(restart_flag_file):
                     if time.time() - start_time > timeout:
