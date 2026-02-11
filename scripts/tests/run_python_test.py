@@ -371,12 +371,10 @@ def monitor_app_restart_requests(
         app_stdin_pipe,
         restart_flag_file):
     allow_multiple_restarts = True
-    restart_count = 0
     
     while True:
         try:
             if os.path.exists(restart_flag_file):
-                restart_count += 1
                 
                 # Read the flag file content to determine restart behavior
                 try:
@@ -386,9 +384,7 @@ def monitor_app_restart_requests(
                     log.error("Failed to read restart flag file: %r", e)
                     restart_mode = "restart"  # Default to multiple restarts
                 
-                log.info(f"App restart requested by test script (mode: {restart_mode}, restart #{restart_count})")
-
-                # Handle different restart modes
+                # Handle different reboot modes
                 if restart_mode == "reboot_once":
                     # Single reboot mode - disable monitoring after this reboot
                     allow_multiple_restarts = False
@@ -396,9 +392,6 @@ def monitor_app_restart_requests(
                 elif restart_mode == "restart":
                     # Multiple restart mode - continue monitoring
                     log.info("Multiple restart mode - will continue monitoring for additional restarts")
-                else:
-                    log.warning(f"Unknown restart mode '{restart_mode}', treating as single restart")
-                    allow_multiple_restarts = False
 
                 # Perform the reboot
                 new_app_manager = AppProcessManager(app, app_args, app_ready_pattern, stream_output, app_stdin_pipe)
@@ -406,7 +399,10 @@ def monitor_app_restart_requests(
                 with app_manager_lock:
                     new_app_manager.start()
                     app_manager_ref[0] = new_app_manager
-                    log.info("App reboot completed")
+                    if restart_mode == "reset":
+                        log.info("App factory reset completed")
+                    else:
+                        log.info("App reboot completed")
                 
                 # Remove the flag file AFTER reboot completes
                 # This allows test scripts to wait for file deletion as a completion signal
@@ -418,7 +414,7 @@ def monitor_app_restart_requests(
                 
                 # If single reboot mode, exit the monitoring loop
                 if not allow_multiple_restarts:
-                    log.info("Exiting restart monitor after single reboot")
+                    log.info("Exiting app reboot monitor after single reboot")
                     break
                     
             time.sleep(0.5)
