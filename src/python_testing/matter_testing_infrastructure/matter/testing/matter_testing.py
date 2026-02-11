@@ -1509,15 +1509,25 @@ class MatterBaseTest(base_test.BaseTestClass):
         else:
             try:
                 # Create the restart flag file to signal the test runner
+                # Use "restart_once" to indicate this is a single reboot (not multiple like SW update tests)
                 with open(restart_flag_file, "w") as f:
-                    f.write("restart")
-                LOGGER.info("Created restart flag file to signal app reboot")
+                    f.write("reboot_once")
+                LOGGER.info("Created restart flag file to signal app reboot (single reboot mode)")
 
-                # The test runner will automatically wait for the app-ready-pattern before continuing
-
-                # Expire sessions and re-establish connections
+                # Expire sessions before the monitor picks up the flag
                 self._expire_sessions_on_all_controllers()
-                LOGGER.info("App restart completed successfully")
+
+                # Wait for the monitor thread to remove the flag file
+                # The monitor deletes the flag file AFTER the restart completes, so this ensures
+                # the app has fully restarted and is ready before we continue
+                timeout = 10.0  # Increased timeout to allow for full app reboot
+                start_time = time.time()
+                while os.path.exists(restart_flag_file):
+                    if time.time() - start_time > timeout:
+                        asserts.fail("App reboot did not complete within timeout (flag file still exists)")
+                    await asyncio.sleep(0.1)
+
+                LOGGER.info("App reboot completed successfully")
 
             except Exception as e:
                 LOGGER.error(f"Failed to reboot app: {e}")

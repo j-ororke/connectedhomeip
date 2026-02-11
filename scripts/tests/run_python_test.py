@@ -370,22 +370,60 @@ def monitor_app_restart_requests(
         stream_output,
         app_stdin_pipe,
         restart_flag_file):
+    allow_multiple_restarts = True
+    restart_count = 0
+    
     while True:
         try:
             if os.path.exists(restart_flag_file):
-                log.info("App restart requested by test script")
-                # Remove the flag file immediately to prevent multiple restarts
-                os.unlink(restart_flag_file)
+                restart_count += 1
+                
+                # Read the flag file content to determine restart behavior
+                try:
+                    with open(restart_flag_file, 'r') as f:
+                        restart_mode = f.read().strip()
+                except Exception as e:
+                    log.error("Failed to read restart flag file: %r", e)
+                    restart_mode = "restart"  # Default to multiple restarts
+                
+                log.info(f"App restart requested by test script (mode: {restart_mode}, restart #{restart_count})")
 
+                # Handle different restart modes
+                if restart_mode == "reboot_once":
+                    # Single reboot mode - disable monitoring after this reboot
+                    allow_multiple_restarts = False
+                    log.info("Single reboot mode - will stop monitoring after this reboot")
+                elif restart_mode == "restart":
+                    # Multiple restart mode - continue monitoring
+                    log.info("Multiple restart mode - will continue monitoring for additional restarts")
+                else:
+                    log.warning(f"Unknown restart mode '{restart_mode}', treating as single restart")
+                    allow_multiple_restarts = False
+
+                # Perform the reboot
                 new_app_manager = AppProcessManager(app, app_args, app_ready_pattern, stream_output, app_stdin_pipe)
                 app_manager_ref[0].stop()
                 with app_manager_lock:
                     new_app_manager.start()
                     app_manager_ref[0] = new_app_manager
-                    log.info("App restart completed")
+                    log.info("App reboot completed")
+                
+                # Remove the flag file AFTER reboot completes
+                # This allows test scripts to wait for file deletion as a completion signal
+                try:
+                    os.unlink(restart_flag_file)
+                    log.info("Removed restart flag file after successful reboot")
+                except OSError as e:
+                    log.error(f"Failed to remove restart flag file: {e}")
+                
+                # If single reboot mode, exit the monitoring loop
+                if not allow_multiple_restarts:
+                    log.info("Exiting restart monitor after single reboot")
+                    break
+                    
             time.sleep(0.5)
         except Exception as e:
-            log.error("Error in app restart monitor: %r", e)
+            log.error("Error in app reboot monitor: %r", e)
 
 
 if __name__ == '__main__':
