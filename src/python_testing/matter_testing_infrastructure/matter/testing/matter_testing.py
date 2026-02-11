@@ -1485,7 +1485,7 @@ class MatterBaseTest(base_test.BaseTestClass):
                         except ChipStackError as e:  # chipstack-ok
                             LOGGER.warning(f"Failed to expire sessions on controller {controller.nodeId}: {e}")
 
-    async def request_device_reboot(self):
+    async def request_device_reboot(self, multiple_reboots: bool = False):
         """Request a reboot of the Device Under Test (DUT).
 
         This method handles device reboots in both CI and development environments (via run_python_test.py test runner script)
@@ -1509,10 +1509,16 @@ class MatterBaseTest(base_test.BaseTestClass):
         else:
             try:
                 # Create the restart flag file to signal the test runner
-                # Use "restart_once" to indicate this is a single reboot (not multiple like SW update tests)
+                # Allow for multiple reboots like SW update tests do using the "restart" mode
+                if multiple_reboots:
+                    mode = "restart"
+
+                # Use "reboot_once" mode to indicate that this is a single reboot (not multiple like SW update tests)
+                else:
+                    mode = "reboot_once"
                 with open(restart_flag_file, "w") as f:
-                    f.write("reboot_once")
-                LOGGER.info("Created restart flag file to signal app reboot (single reboot mode)")
+                    f.write(mode)
+                LOGGER.info(f"Created restart flag file to signal app reboot ({mode} mode)")
 
                 # Expire sessions before the monitor picks up the flag
                 self._expire_sessions_on_all_controllers()
@@ -1520,14 +1526,14 @@ class MatterBaseTest(base_test.BaseTestClass):
                 # Wait for the monitor thread to remove the flag file
                 # The monitor deletes the flag file AFTER the restart completes, so this ensures
                 # the app has fully rebooted and is ready before we continue
-                timeout = 30.0  # Increased timeout to allow for full app reboot
+                timeout_sec = 30.0  # Increased timeout to allow for full app reboot
                 start_time = time.time()
                 while os.path.exists(restart_flag_file):
-                    if time.time() - start_time > timeout:
+                    if time.time() - start_time > timeout_sec:
                         asserts.fail("App reboot did not complete within timeout (flag file still exists)")
                     await asyncio.sleep(0.1)
 
-                LOGGER.info("App reboot completed successfully")
+                LOGGER.info(f"App reboot completed successfully ({mode} mode)")
 
             except Exception as e:
                 LOGGER.error(f"Failed to reboot app: {e}")

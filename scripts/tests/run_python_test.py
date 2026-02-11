@@ -370,8 +370,12 @@ def monitor_app_restart_requests(
         stream_output,
         app_stdin_pipe,
         restart_flag_file):
-    allow_multiple_restarts = True
 
+    '''
+    Note: Factory reset is currently being implemented by Raul in PR https://github.com/project-chip/connectedhomeip/pull/42848 
+    it is not currently implemented here as of yet.
+    '''
+    
     while True:
         try:
             if os.path.exists(restart_flag_file):
@@ -391,6 +395,7 @@ def monitor_app_restart_requests(
                     log.info("Single reboot mode - will stop monitoring after this reboot")
                 elif restart_mode == "restart":
                     # Multiple restart mode - continue monitoring
+                    allow_multiple_restarts = True
                     log.info("Multiple restart mode - will continue monitoring for additional restarts")
 
                 # Perform the reboot

@@ -147,7 +147,7 @@ class TC_AVSM_2_20(MatterBaseTest, AVSMTestBase):
         asserts.assert_equal(len(allocated_snapshot_streams), 1, "AllocatedSnapshotStreams should have 1 entry")
 
         self.step(9)
-        await self.request_device_reboot()
+        await self.request_device_reboot(multiple_reboots=True)
         self.step(10)
 
         self.step(11)
@@ -171,7 +171,7 @@ class TC_AVSM_2_20(MatterBaseTest, AVSMTestBase):
         asserts.assert_equal(len(allocated_snapshot_streams), 0, "AllocatedSnapshotStreams should be empty after deallocate")
 
         self.step(14)
-        await self.request_device_reboot()
+        await self.request_device_reboot(multiple_reboots=False)
         self.step(15)
 
         self.step(16)

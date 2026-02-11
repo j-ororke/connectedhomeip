@@ -185,7 +185,7 @@ class TC_AVSM_2_18(MatterBaseTest, AVSMTestBase):
         asserts.assert_equal(len(allocated_video_streams), 1, "AllocatedVideoStreams should have 1 entry")
 
         self.step(13)
-        await self.request_device_reboot()
+        await self.request_device_reboot(multiple_reboots=True)
         self.step(14)
         # Wait for device to be online is handled by request_device_reboot
 
@@ -215,7 +215,7 @@ class TC_AVSM_2_18(MatterBaseTest, AVSMTestBase):
         asserts.assert_equal(len(allocated_video_streams), 0, "AllocatedVideoStreams should be empty after deallocate")
 
         self.step(18)
-        await self.request_device_reboot()
+        await self.request_device_reboot(multiple_reboots=False)
         self.step(19)
 
         self.step(20)
