@@ -370,7 +370,6 @@ def monitor_app_restart_requests(
         stream_output,
         app_stdin_pipe,
         restart_flag_file):
-
     '''
     Note: Factory reset is currently being implemented by Raul in PR https://github.com/project-chip/connectedhomeip/pull/42848 
     it is not currently implemented here as of yet.
