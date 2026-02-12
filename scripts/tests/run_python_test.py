@@ -401,7 +401,7 @@ def monitor_app_restart_requests(
                     app_manager_ref[0] = new_app_manager
 
                     '''
-                    Note: Below is just a placeholder for the Factory reset functionality that is currently being implemented by 
+                    Note: Below is just a placeholder for the Factory reset functionality that is currently being implemented by
                     Raul in PR https://github.com/project-chip/connectedhomeip/pull/42848
                     it is not currently implemented here as of yet.
                     '''
