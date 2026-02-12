@@ -370,10 +370,6 @@ def monitor_app_restart_requests(
         stream_output,
         app_stdin_pipe,
         restart_flag_file):
-    '''
-    Note: Factory reset is currently being implemented by Raul in PR https://github.com/project-chip/connectedhomeip/pull/42848
-    it is not currently implemented here as of yet.
-    '''
 
     while True:
         try:
@@ -388,10 +384,10 @@ def monitor_app_restart_requests(
                     restart_mode = "restart"  # Default to multiple restarts
 
                 # Handle different reboot modes
-                if restart_mode == "reboot_once":
+                if restart_mode == "restart_once":
                     # Single reboot mode - disable monitoring after this reboot
                     allow_multiple_restarts = False
-                    log.info("Single reboot mode - will stop monitoring after this reboot")
+                    log.info("Single restart mode - will stop monitoring after this restart")
                 elif restart_mode == "restart":
                     # Multiple restart mode - continue monitoring
                     allow_multiple_restarts = True
@@ -403,27 +399,33 @@ def monitor_app_restart_requests(
                 with app_manager_lock:
                     new_app_manager.start()
                     app_manager_ref[0] = new_app_manager
+
+                    '''
+                    Note: Below is just a placeholder for the Factory reset functionality that is currently being implemented by 
+                    Raul in PR https://github.com/project-chip/connectedhomeip/pull/42848
+                    it is not currently implemented here as of yet.
+                    '''
                     if restart_mode == "reset":
                         log.info("App factory reset completed")
                     else:
-                        log.info("App reboot completed")
+                        log.info("App restart completed")
 
-                # Remove the flag file AFTER reboot completes
+                # Remove the flag file AFTER restart completes
                 # This allows test scripts to wait for file deletion as a completion signal
                 try:
                     os.unlink(restart_flag_file)
-                    log.info("Removed restart flag file after successful reboot")
+                    log.info("Removed restart flag file after successful restart")
                 except OSError as e:
                     log.error(f"Failed to remove restart flag file: {e}")
 
                 # If single reboot mode, exit the monitoring loop
                 if not allow_multiple_restarts:
-                    log.info("Exiting app reboot monitor after single reboot")
+                    log.info("Exiting app restart monitor after single restart")
                     break
 
             time.sleep(0.5)
         except Exception as e:
-            log.error("Error in app reboot monitor: %r", e)
+            log.error("Error in app restart monitor: %r", e)
 
 
 if __name__ == '__main__':

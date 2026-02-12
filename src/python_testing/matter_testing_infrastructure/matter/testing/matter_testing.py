@@ -1513,9 +1513,9 @@ class MatterBaseTest(base_test.BaseTestClass):
                 if multiple_reboots:
                     mode = "restart"
 
-                # Use "reboot_once" mode to indicate that this is a single reboot (not multiple like SW update tests)
+                # Use "restart_once" mode to indicate that this is a single reboot (not multiple like SW update tests)
                 else:
-                    mode = "reboot_once"
+                    mode = "restart_once"
                 with open(restart_flag_file, "w") as f:
                     f.write(mode)
                 LOGGER.info(f"Created restart flag file to signal app reboot ({mode} mode)")
