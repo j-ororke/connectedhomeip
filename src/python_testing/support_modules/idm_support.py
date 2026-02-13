@@ -34,6 +34,7 @@ from matter.interaction_model import InteractionModelError, Status
 from matter.testing import global_attribute_ids
 from matter.testing.global_attribute_ids import GlobalAttributeIds, is_standard_attribute_id
 from matter.testing.matter_testing import MatterBaseTest
+from matter.testing.spec_parsing import ConstraintReference, Constraints
 from matter.tlv import uint
 
 log = logging.getLogger(__name__)
@@ -373,12 +374,9 @@ class IDMBaseTest(MatterBaseTest):
                 asserts.assert_equal(returned_attrs, attr_list,
                                      f"Mismatch for {cluster} at endpoint {endpoint}")
 
-    async def resolve_dynamic_constraint(self, cluster_class, endpoint_id: int, ref_dict: dict) -> Optional[int]:
+    async def resolve_dynamic_constraint(self, cluster_class, endpoint_id: int, ref: ConstraintReference) -> Optional[int]:
         """Resolve a dynamic constraint reference by reading the attribute value."""
-        ref_attr_name = ref_dict['attribute']
-        ref_field_name = ref_dict.get('field')
-
-        ref_attr = getattr(cluster_class.Attributes, ref_attr_name, None)
+        ref_attr = getattr(cluster_class.Attributes, ref.attribute, None)
         if not ref_attr:
             return None
 
@@ -388,55 +386,65 @@ class IDMBaseTest(MatterBaseTest):
             attribute=ref_attr
         )
 
-        if ref_field_name:
-            python_field_name = ref_field_name[0].lower() + ref_field_name[1:]
+        if ref.field:
+            python_field_name = ref.field[0].lower() + ref.field[1:]
             if hasattr(ref_value, python_field_name):
                 return getattr(ref_value, python_field_name)
             return None
 
         return ref_value if isinstance(ref_value, (int, float)) else None
 
-    def generate_constraint_violation(self, attr_info: dict, constraints: dict):
+    def generate_constraint_violation(self, attr_info: dict, constraints: Constraints):
         """Generate a test value that violates the given constraints."""
         datatype = attr_info['datatype']
 
         # String constraints
         if 'string' in datatype or 'octstr' in datatype:
-            if 'maxLength' in constraints:
-                return 'x' * (constraints['maxLength'] + 1)
-            if 'minLength' in constraints:
-                return 'x' * max(0, constraints['minLength'] - 1)
+            if constraints.max_length is not None:
+                return 'x' * (constraints.max_length + 1)
+            if constraints.min_length is not None:
+                return 'x' * max(0, constraints.min_length - 1)
 
         # List constraints
         if 'list' in datatype:
-            if 'maxCount' in constraints:
-                return [{}] * (constraints['maxCount'] + 1)
-            if 'minCount' in constraints:
-                count = max(0, constraints['minCount'] - 1)
+            if constraints.max_count is not None:
+                return [{}] * (constraints.max_count + 1)
+            if constraints.min_count is not None:
+                count = max(0, constraints.min_count - 1)
                 return [{}] * count if count > 0 else []
 
         # Numeric-like constraints (int, uint, percent, elapsed-s, temperature, etc.)
-        if 'max' in constraints:
-            return constraints['max'] + 1
-        if 'min' in constraints:
-            return max(0, constraints['min'] - 1)
+        if constraints.max_value is not None:
+            return constraints.max_value + 1
+        if constraints.min_value is not None:
+            return max(0, constraints.min_value - 1)
 
         return None
 
-    async def check_attribute_constraint(self, attr_info: dict, constraints: dict) -> bool:
+    async def check_attribute_constraint(self, attr_info: dict, constraints: Constraints) -> bool:
         """Test a single attribute's constraint. Returns True if test passed, False otherwise."""
         # Resolve dynamic constraints if present
-        if 'minAttributeRef' in constraints or 'maxAttributeRef' in constraints:
+        if constraints.min_value_ref or constraints.max_value_ref or constraints.min_count_ref or constraints.max_count_ref:
             cluster_class = attr_info['cluster_class']
 
-            if 'minAttributeRef' in constraints:
-                constraints['min'] = await self.resolve_dynamic_constraint(
-                    cluster_class, attr_info['endpoint_id'], constraints['minAttributeRef']
+            if constraints.min_value_ref:
+                constraints.min_value = await self.resolve_dynamic_constraint(
+                    cluster_class, attr_info['endpoint_id'], constraints.min_value_ref
                 )
 
-            if 'maxAttributeRef' in constraints:
-                constraints['max'] = await self.resolve_dynamic_constraint(
-                    cluster_class, attr_info['endpoint_id'], constraints['maxAttributeRef']
+            if constraints.max_value_ref:
+                constraints.max_value = await self.resolve_dynamic_constraint(
+                    cluster_class, attr_info['endpoint_id'], constraints.max_value_ref
+                )
+
+            if constraints.min_count_ref:
+                constraints.min_count = await self.resolve_dynamic_constraint(
+                    cluster_class, attr_info['endpoint_id'], constraints.min_count_ref
+                )
+
+            if constraints.max_count_ref:
+                constraints.max_count = await self.resolve_dynamic_constraint(
+                    cluster_class, attr_info['endpoint_id'], constraints.max_count_ref
                 )
 
         # Generate constraint violation

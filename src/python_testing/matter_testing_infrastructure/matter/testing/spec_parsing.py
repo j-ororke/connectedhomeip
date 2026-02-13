@@ -85,6 +85,44 @@ class DataTypeEnum(StrEnum):
 
 
 @dataclass
+class ConstraintReference:
+    """Reference to another attribute for dynamic constraint values."""
+    attribute: str
+    field: Optional[str] = None
+
+
+@dataclass
+class Constraints:
+    """Constraint information for attributes, commands, and device types."""
+    min_value: Optional[Union[int, float]] = None
+    max_value: Optional[Union[int, float]] = None
+    min_length: Optional[int] = None
+    max_length: Optional[int] = None
+    min_count: Optional[int] = None
+    max_count: Optional[int] = None
+    # Dynamic constraint references
+    min_value_ref: Optional[ConstraintReference] = None
+    max_value_ref: Optional[ConstraintReference] = None
+    min_count_ref: Optional[ConstraintReference] = None
+    max_count_ref: Optional[ConstraintReference] = None
+
+    def has_constraints(self) -> bool:
+        """Check if any constraints are defined."""
+        return any([
+            self.min_value is not None,
+            self.max_value is not None,
+            self.min_length is not None,
+            self.max_length is not None,
+            self.min_count is not None,
+            self.max_count is not None,
+            self.min_value_ref is not None,
+            self.max_value_ref is not None,
+            self.min_count_ref is not None,
+            self.max_count_ref is not None,
+        ])
+
+
+@dataclass
 class XmlDataTypeComponent:
     value: uint
     name: str
@@ -94,7 +132,7 @@ class XmlDataTypeComponent:
     type_info: Optional[str] = None  # Data type for struct fields
     is_optional: bool = False  # Whether field is optional
     is_nullable: bool = False  # Whether field can be null
-    constraints: Optional[dict] = None  # For min/max values, lists, etc.
+    constraints: Optional[Constraints] = None  # For min/max values, lists, etc.
 
 
 @dataclass
@@ -128,7 +166,7 @@ class XmlAttribute:
     read_access: int
     write_access: int
     write_optional: bool
-    constraints: dict = field(default_factory=dict)
+    constraints: Optional[Constraints] = None
 
     def access_string(self):
         read_marker = "R" if self.read_access is not ACCESS_CONTROL_PRIVILEGE_ENUM.kUnknownEnumValue else ""
@@ -775,62 +813,69 @@ class ClusterParser:
                                         conformance=conformance)
         return features
 
-    def parse_attribute_constraints(self, element: ElementTree.Element) -> dict:
+    def parse_attribute_constraints(self, element: ElementTree.Element) -> Optional[Constraints]:
         """Parse constraint information from an attribute element.
         
         Args:
             element: The attribute XML element
             
         Returns:
-            Dictionary of constraint information (min, max, minLength, maxLength, etc.)
+            Constraints object, or None if no constraints are defined
         """
-        constraints = {}
-        
         # Find the constraint element
         constraint_elem = element.find('./constraint')
         if constraint_elem is None:
-            return constraints
+            return None
 
         # Helper to parse numeric values (handles both int and float)
-        def parse_numeric_value(value_str: str):
-            """Parse a numeric constraint value, handling both integers and floats."""
-            try:
-                # Try parsing as float first (handles both int and float strings)
-                value = float(value_str)
-                # Return as int if it's a whole number, otherwise as float
-                return int(value) if value.is_integer() else value
-            except (ValueError, AttributeError):
-                # If parsing fails, return the string as-is
-                return value_str
+        def parse_numeric_value(value_str: str) -> Union[int, float]:
+            """Parse a numeric constraint value, handling integers, floats, and hex strings."""
+            # Handle hexadecimal strings (e.g., '0x001F')
+            if value_str.startswith(('0x', '0X')):
+                return int(value_str, 16)
+            
+            # Try parsing as float (handles both int and float strings)
+            value = float(value_str)
+            # Return as int if it's a whole number, otherwise as float
+            return int(value) if value.is_integer() else value
+
+        # Helper to parse constraint reference
+        def parse_reference(elem: ElementTree.Element) -> Optional[ConstraintReference]:
+            """Parse dynamic constraint reference to another attribute."""
+            attr_ref = elem.find('./attribute')
+            if attr_ref is not None and 'name' in attr_ref.attrib:
+                attr_name = attr_ref.attrib['name']
+                field_ref = attr_ref.find('./field')
+                field_name = field_ref.attrib['name'] if field_ref is not None and 'name' in field_ref.attrib else None
+                return ConstraintReference(attribute=attr_name, field=field_name)
+            return None
+
+        # Initialize constraint values
+        min_value = None
+        max_value = None
+        min_length = None
+        max_length = None
+        min_count = None
+        max_count = None
+        min_value_ref = None
+        max_value_ref = None
+        min_count_ref = None
+        max_count_ref = None
 
         # Parse min/max/between constraints
         min_elem = constraint_elem.find('./min')
         if min_elem is not None:
             if 'value' in min_elem.attrib:
-                constraints['min'] = parse_numeric_value(min_elem.attrib['value'])
+                min_value = parse_numeric_value(min_elem.attrib['value'])
             else:
-                # Parse dynamic constraint reference
-                attr_ref = min_elem.find('./attribute')
-                if attr_ref is not None and 'name' in attr_ref.attrib:
-                    ref_dict = {'attribute': attr_ref.attrib['name']}
-                    field_ref = attr_ref.find('./field')
-                    if field_ref is not None and 'name' in field_ref.attrib:
-                        ref_dict['field'] = field_ref.attrib['name']
-                    constraints['minAttributeRef'] = ref_dict
+                min_value_ref = parse_reference(min_elem)
 
         max_elem = constraint_elem.find('./max')
         if max_elem is not None:
             if 'value' in max_elem.attrib:
-                constraints['max'] = parse_numeric_value(max_elem.attrib['value'])
+                max_value = parse_numeric_value(max_elem.attrib['value'])
             else:
-                # Parse dynamic constraint reference
-                attr_ref = max_elem.find('./attribute')
-                if attr_ref is not None and 'name' in attr_ref.attrib:
-                    ref_dict = {'attribute': attr_ref.attrib['name']}
-                    field_ref = attr_ref.find('./field')
-                    if field_ref is not None and 'name' in field_ref.attrib:
-                        ref_dict['field'] = field_ref.attrib['name']
-                    constraints['maxAttributeRef'] = ref_dict
+                max_value_ref = parse_reference(max_elem)
 
         between_elem = constraint_elem.find('./between')
         if between_elem is not None:
@@ -839,53 +884,53 @@ class ClusterParser:
 
             if from_elem is not None:
                 if 'value' in from_elem.attrib:
-                    constraints['min'] = parse_numeric_value(from_elem.attrib['value'])
+                    min_value = parse_numeric_value(from_elem.attrib['value'])
                 else:
-                    # Parse dynamic constraint reference
-                    attr_ref = from_elem.find('./attribute')
-                    if attr_ref is not None and 'name' in attr_ref.attrib:
-                        ref_dict = {'attribute': attr_ref.attrib['name']}
-                        field_ref = attr_ref.find('./field')
-                        if field_ref is not None and 'name' in field_ref.attrib:
-                            ref_dict['field'] = field_ref.attrib['name']
-                        constraints['minAttributeRef'] = ref_dict
+                    min_value_ref = parse_reference(from_elem)
 
             if to_elem is not None:
                 if 'value' in to_elem.attrib:
-                    constraints['max'] = parse_numeric_value(to_elem.attrib['value'])
+                    max_value = parse_numeric_value(to_elem.attrib['value'])
                 else:
-                    # Parse dynamic constraint reference
-                    attr_ref = to_elem.find('./attribute')
-                    if attr_ref is not None and 'name' in attr_ref.attrib:
-                        ref_dict = {'attribute': attr_ref.attrib['name']}
-                        field_ref = attr_ref.find('./field')
-                        if field_ref is not None and 'name' in field_ref.attrib:
-                            ref_dict['field'] = field_ref.attrib['name']
-                        constraints['maxAttributeRef'] = ref_dict
+                    max_value_ref = parse_reference(to_elem)
 
         # Parse string length constraints
-        for constraint_type in ['minLength', 'maxLength']:
-            elem = constraint_elem.find(f'./{constraint_type}')
-            if elem is not None and 'value' in elem.attrib:
-                constraints[constraint_type] = int(elem.attrib['value'])
+        min_length_elem = constraint_elem.find('./minLength')
+        if min_length_elem is not None and 'value' in min_length_elem.attrib:
+            min_length = int(min_length_elem.attrib['value'], 0)
+
+        max_length_elem = constraint_elem.find('./maxLength')
+        if max_length_elem is not None and 'value' in max_length_elem.attrib:
+            max_length = int(max_length_elem.attrib['value'], 0)
 
         # Parse list count constraints
-        for constraint_type, xml_tag in [('minCount', 'minCount'), ('maxCount', 'maxCount')]:
-            elem = constraint_elem.find(f'./{xml_tag}')
-            if elem is not None:
-                if 'value' in elem.attrib:
-                    constraints[constraint_type] = int(elem.attrib['value'])
-                else:
-                    # Parse dynamic constraint reference
-                    attr_ref = elem.find('./attribute')
-                    if attr_ref is not None and 'name' in attr_ref.attrib:
-                        ref_dict = {'attribute': attr_ref.attrib['name']}
-                        field_ref = attr_ref.find('./field')
-                        if field_ref is not None and 'name' in field_ref.attrib:
-                            ref_dict['field'] = field_ref.attrib['name']
-                        constraints[f'{constraint_type.replace("Count", "")}AttributeRef'] = ref_dict
+        min_count_elem = constraint_elem.find('./minCount')
+        if min_count_elem is not None:
+            if 'value' in min_count_elem.attrib:
+                min_count = int(min_count_elem.attrib['value'], 0)
+            else:
+                min_count_ref = parse_reference(min_count_elem)
 
-        return constraints
+        max_count_elem = constraint_elem.find('./maxCount')
+        if max_count_elem is not None:
+            if 'value' in max_count_elem.attrib:
+                max_count = int(max_count_elem.attrib['value'], 0)
+            else:
+                max_count_ref = parse_reference(max_count_elem)
+
+        # Create and return the Constraints object
+        return Constraints(
+            min_value=min_value,
+            max_value=max_value,
+            min_length=min_length,
+            max_length=max_length,
+            min_count=min_count,
+            max_count=max_count,
+            min_value_ref=min_value_ref,
+            max_value_ref=max_value_ref,
+            min_count_ref=min_count_ref,
+            max_count_ref=max_count_ref
+        )
 
     def parse_attributes(self) -> dict[uint, XmlAttribute]:
         attributes: dict[uint, XmlAttribute] = {}

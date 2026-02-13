@@ -194,7 +194,7 @@ class TC_IDM_9_1(IDMBaseTest, BasicCompositionTests):
         for attr_info in writable_attributes:
             constraints = attr_info['constraints']
 
-            if not constraints:
+            if not constraints or not constraints.has_constraints():
                 skipped_count += 1
                 continue
 
