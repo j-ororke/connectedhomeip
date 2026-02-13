@@ -1485,7 +1485,7 @@ class MatterBaseTest(base_test.BaseTestClass):
                         except ChipStackError as e:  # chipstack-ok
                             LOGGER.warning(f"Failed to expire sessions on controller {controller.nodeId}: {e}")
 
-    async def request_device_reboot(self, multiple_reboots: bool = False):
+    async def request_device_reboot(self):
         """Request a reboot of the Device Under Test (DUT).
 
         This method handles device reboots in both CI and development environments (via run_python_test.py test runner script)
@@ -1510,15 +1510,9 @@ class MatterBaseTest(base_test.BaseTestClass):
             try:
                 # Create the restart flag file to signal the test runner
                 # Allow for multiple reboots like SW update tests do using the "restart" mode
-                if multiple_reboots:
-                    mode = "restart"
-
-                # Use "restart_once" mode to indicate that this is a single reboot (not multiple like SW update tests)
-                else:
-                    mode = "restart_once"
                 with open(restart_flag_file, "w") as f:
-                    f.write(mode)
-                LOGGER.info(f"Created restart flag file to signal app reboot ({mode} mode)")
+                    f.write("restart")
+                LOGGER.info(f"Created restart flag file to signal app reboot")
 
                 # Expire sessions before the monitor picks up the flag
                 self._expire_sessions_on_all_controllers()
@@ -1533,7 +1527,7 @@ class MatterBaseTest(base_test.BaseTestClass):
                         asserts.fail("App reboot did not complete within timeout (flag file still exists)")
                     await asyncio.sleep(0.1)
 
-                LOGGER.info(f"App reboot completed successfully ({mode} mode)")
+                LOGGER.info(f"App reboot completed successfully")
 
             except Exception as e:
                 LOGGER.error(f"Failed to reboot app: {e}")

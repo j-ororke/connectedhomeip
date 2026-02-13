@@ -146,7 +146,7 @@ class TC_AVSM_2_19(MatterBaseTest, AVSMTestBase):
         asserts.assert_equal(len(allocated_audio_streams), 1, "AllocatedAudioStreams should have 1 entry")
 
         self.step(9)
-        await self.request_device_reboot(multiple_reboots=True)
+        await self.request_device_reboot()
         self.step(10)
 
         self.step(11)
@@ -169,7 +169,7 @@ class TC_AVSM_2_19(MatterBaseTest, AVSMTestBase):
         asserts.assert_equal(len(allocated_audio_streams), 0, "AllocatedAudioStreams should be empty after deallocate")
 
         self.step(14)
-        await self.request_device_reboot(multiple_reboots=False)
+        await self.request_device_reboot()
         self.step(15)
 
         self.step(16)

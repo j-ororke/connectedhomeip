@@ -374,16 +374,12 @@ def monitor_app_restart_requests(
     while True:
         try:
             if os.path.exists(restart_flag_file):
-
                 # Read the flag file content to determine restart behavior
                 try:
                     with open(restart_flag_file, 'r') as f:
                         restart_mode = f.read().strip()
                 except Exception as e:
-                    log.error("Failed to read restart flag file: %r", e)
-                    restart_mode = "restart"  # Default to multiple restarts
-
-                allow_multiple_restarts = (restart_mode != "restart_once")
+                    log.error("Failed to read restart flag file: %r", e)    
 
                 # Perform the reboot
                 new_app_manager = AppProcessManager(app, app_args, app_ready_pattern, stream_output, app_stdin_pipe)
@@ -407,12 +403,8 @@ def monitor_app_restart_requests(
                 except OSError as e:
                     log.error(f"Failed to remove restart flag file: {e}")
 
-                # If single reboot mode, exit the monitoring loop
-                if not allow_multiple_restarts:
-                    log.info("Exiting app restart monitor after single restart")
-                    break
-
             time.sleep(0.5)
+            
         except Exception as e:
             log.error("Error in app restart monitor: %r", e)
 
