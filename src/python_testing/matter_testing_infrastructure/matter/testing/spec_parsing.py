@@ -633,7 +633,7 @@ class ClusterParser:
         quality = xml_field.find('./quality')
         return quality is not None and 'nullable' in quality.attrib and quality.attrib['nullable'].lower() == 'true'
 
-    def _parse_field_constraints(self, xml_field: ElementTree.Element) -> dict | None:
+    def _parse_field_constraints(self, xml_field: ElementTree.Element) -> Optional[Constraints]:
         """
         Parse constraint information from XML field element.
 
@@ -644,31 +644,54 @@ class ClusterParser:
             xml_field: XML element representing the field
 
         Returns:
-            Dictionary of constraints if any found, None otherwise
+            Constraints object if any found, None otherwise
         """
         constraint_elements = xml_field.findall('./constraint')
         if not constraint_elements:
             return None
 
-        constraints = {}
+        # Helper to parse numeric values
+        def parse_value(value_str: str) -> Optional[Union[int, float]]:
+            """Parse numeric constraint value."""
+            try:
+                if value_str.startswith(('0x', '0X')):
+                    return int(value_str, 16)
+                value = float(value_str)
+                return int(value) if value.is_integer() else value
+            except ValueError:
+                return None
+
+        min_value = None
+        max_value = None
+        max_count = None
+        max_count_ref = None
+
         for constraint in constraint_elements:
             # Handle direct attributes like min/max
-            for attr_name in ['min', 'max']:
-                if attr_name in constraint.attrib:
-                    constraints[attr_name] = constraint.attrib[attr_name]
+            if 'min' in constraint.attrib:
+                min_value = parse_value(constraint.attrib['min'])
+            if 'max' in constraint.attrib:
+                max_value = parse_value(constraint.attrib['max'])
 
             # Handle maxCount child element
-            max_count = constraint.find('./maxCount')
-            if max_count is not None and max_count.text is not None:
-                constraints['maxCount'] = max_count.text
+            max_count_elem = constraint.find('./maxCount')
+            if max_count_elem is not None and max_count_elem.text is not None:
+                max_count = parse_value(max_count_elem.text)
                 # If maxCount references an attribute, store that reference
-                attr_element = max_count.find('./attribute')
+                attr_element = max_count_elem.find('./attribute')
                 if attr_element is not None and 'name' in attr_element.attrib:
-                    constraints['maxCountAttribute'] = attr_element.attrib['name']
+                    max_count_ref = ConstraintReference(attribute=attr_element.attrib['name'], field=None)
 
-        # Return None instead of {} to clearly distinguish "no constraints found" from "empty constraints"
-        # This matches the Optional[dict] type in XmlDataTypeComponent.constraints
-        return constraints if constraints else None
+        # Only return Constraints object if we found any constraints
+        if min_value is not None or max_value is not None or max_count is not None or max_count_ref is not None:
+            return Constraints(
+                min_value=min_value,
+                max_value=max_value,
+                max_count=max_count,
+                max_count_ref=max_count_ref
+            )
+
+        return None
 
     def _parse_field_conformance(self, xml_field: ElementTree.Element) -> ConformanceCallable:
         """
