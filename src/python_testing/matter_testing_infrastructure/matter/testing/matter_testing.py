@@ -1512,7 +1512,7 @@ class MatterBaseTest(base_test.BaseTestClass):
                 # Allow for multiple reboots like SW update tests do using the "restart" mode
                 with open(restart_flag_file, "w") as f:
                     f.write("restart")
-                LOGGER.info(f"Created restart flag file to signal app reboot")
+                LOGGER.info("Created restart flag file to signal app reboot")
 
                 # Expire sessions before the monitor picks up the flag
                 self._expire_sessions_on_all_controllers()
@@ -1527,7 +1527,7 @@ class MatterBaseTest(base_test.BaseTestClass):
                         asserts.fail("App reboot did not complete within timeout (flag file still exists)")
                     await asyncio.sleep(0.1)
 
-                LOGGER.info(f"App reboot completed successfully")
+                LOGGER.info("App reboot completed successfully")
 
             except Exception as e:
                 LOGGER.error(f"Failed to reboot app: {e}")

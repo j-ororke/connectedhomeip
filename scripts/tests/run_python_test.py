@@ -379,7 +379,7 @@ def monitor_app_restart_requests(
                     with open(restart_flag_file, 'r') as f:
                         restart_mode = f.read().strip()
                 except Exception as e:
-                    log.error("Failed to read restart flag file: %r", e)    
+                    log.error("Failed to read restart flag file: %r", e)
 
                 # Perform the reboot
                 new_app_manager = AppProcessManager(app, app_args, app_ready_pattern, stream_output, app_stdin_pipe)
@@ -404,7 +404,7 @@ def monitor_app_restart_requests(
                     log.error(f"Failed to remove restart flag file: {e}")
 
             time.sleep(0.5)
-            
+
         except Exception as e:
             log.error("Error in app restart monitor: %r", e)
 
