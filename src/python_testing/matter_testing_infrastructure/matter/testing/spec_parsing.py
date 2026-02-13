@@ -661,6 +661,14 @@ class ClusterParser:
             except ValueError:
                 return None
 
+        # Helper to parse integer values (for counts)
+        def parse_int_value(value_str: str) -> Optional[int]:
+            """Parse integer constraint value (for counts)."""
+            try:
+                return int(value_str, 0)
+            except ValueError:
+                return None
+
         min_value = None
         max_value = None
         max_count = None
@@ -676,7 +684,7 @@ class ClusterParser:
             # Handle maxCount child element
             max_count_elem = constraint.find('./maxCount')
             if max_count_elem is not None and max_count_elem.text is not None:
-                max_count = parse_value(max_count_elem.text)
+                max_count = parse_int_value(max_count_elem.text)
                 # If maxCount references an attribute, store that reference
                 attr_element = max_count_elem.find('./attribute')
                 if attr_element is not None and 'name' in attr_element.attrib:
