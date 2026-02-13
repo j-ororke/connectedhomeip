@@ -47,7 +47,6 @@ from matter.testing.decorators import async_test_body
 from matter.testing.global_attribute_ids import is_standard_cluster_id
 from matter.testing.matter_testing import MatterBaseTest, TestStep
 from matter.testing.runner import default_matter_test_main
-from matter.testing.spec_parsing import parse_attribute_constraints
 
 log = logging.getLogger(__name__)
 
@@ -157,10 +156,6 @@ class TC_IDM_9_1(IDMBaseTest, BasicCompositionTests):
         self.step(2)
         log.info("Testing writable attributes for constraint errors")
 
-        # Get spec version for constraint parsing
-        dm = self._get_dm()
-        spec_version = dm
-
         # Collect writable attributes from DUT
         writable_attributes = []
         for endpoint_id, endpoint in self.endpoints_tlv.items():
@@ -185,7 +180,8 @@ class TC_IDM_9_1(IDMBaseTest, BasicCompositionTests):
                             'attribute_name': xml_attr.name,
                             'attribute': Clusters.ClusterObjects.ALL_ATTRIBUTES[cluster_id][attribute_id],
                             'cluster_class': cluster_class,
-                            'datatype': xml_attr.datatype
+                            'datatype': xml_attr.datatype,
+                            'constraints': xml_attr.constraints
                         })
 
         log.info(f"Found {len(writable_attributes)} writable attributes on DUT")
@@ -196,8 +192,7 @@ class TC_IDM_9_1(IDMBaseTest, BasicCompositionTests):
         failed_attributes = []
 
         for attr_info in writable_attributes:
-            constraints = parse_attribute_constraints(
-                self.xml_clusters, attr_info['cluster_id'], attr_info['attribute_id'], spec_version)
+            constraints = attr_info['constraints']
 
             if not constraints:
                 skipped_count += 1

@@ -128,6 +128,7 @@ class XmlAttribute:
     read_access: int
     write_access: int
     write_optional: bool
+    constraints: dict = field(default_factory=dict)
 
     def access_string(self):
         read_marker = "R" if self.read_access is not ACCESS_CONTROL_PRIVILEGE_ENUM.kUnknownEnumValue else ""
@@ -774,6 +775,118 @@ class ClusterParser:
                                         conformance=conformance)
         return features
 
+    def parse_attribute_constraints(self, element: ElementTree.Element) -> dict:
+        """Parse constraint information from an attribute element.
+        
+        Args:
+            element: The attribute XML element
+            
+        Returns:
+            Dictionary of constraint information (min, max, minLength, maxLength, etc.)
+        """
+        constraints = {}
+        
+        # Find the constraint element
+        constraint_elem = element.find('./constraint')
+        if constraint_elem is None:
+            return constraints
+
+        # Helper to parse numeric values (handles both int and float)
+        def parse_numeric_value(value_str: str):
+            """Parse a numeric constraint value, handling both integers and floats."""
+            try:
+                # Try parsing as float first (handles both int and float strings)
+                value = float(value_str)
+                # Return as int if it's a whole number, otherwise as float
+                return int(value) if value.is_integer() else value
+            except (ValueError, AttributeError):
+                # If parsing fails, return the string as-is
+                return value_str
+
+        # Parse min/max/between constraints
+        min_elem = constraint_elem.find('./min')
+        if min_elem is not None:
+            if 'value' in min_elem.attrib:
+                constraints['min'] = parse_numeric_value(min_elem.attrib['value'])
+            else:
+                # Parse dynamic constraint reference
+                attr_ref = min_elem.find('./attribute')
+                if attr_ref is not None and 'name' in attr_ref.attrib:
+                    ref_dict = {'attribute': attr_ref.attrib['name']}
+                    field_ref = attr_ref.find('./field')
+                    if field_ref is not None and 'name' in field_ref.attrib:
+                        ref_dict['field'] = field_ref.attrib['name']
+                    constraints['minAttributeRef'] = ref_dict
+
+        max_elem = constraint_elem.find('./max')
+        if max_elem is not None:
+            if 'value' in max_elem.attrib:
+                constraints['max'] = parse_numeric_value(max_elem.attrib['value'])
+            else:
+                # Parse dynamic constraint reference
+                attr_ref = max_elem.find('./attribute')
+                if attr_ref is not None and 'name' in attr_ref.attrib:
+                    ref_dict = {'attribute': attr_ref.attrib['name']}
+                    field_ref = attr_ref.find('./field')
+                    if field_ref is not None and 'name' in field_ref.attrib:
+                        ref_dict['field'] = field_ref.attrib['name']
+                    constraints['maxAttributeRef'] = ref_dict
+
+        between_elem = constraint_elem.find('./between')
+        if between_elem is not None:
+            from_elem = between_elem.find('./from')
+            to_elem = between_elem.find('./to')
+
+            if from_elem is not None:
+                if 'value' in from_elem.attrib:
+                    constraints['min'] = parse_numeric_value(from_elem.attrib['value'])
+                else:
+                    # Parse dynamic constraint reference
+                    attr_ref = from_elem.find('./attribute')
+                    if attr_ref is not None and 'name' in attr_ref.attrib:
+                        ref_dict = {'attribute': attr_ref.attrib['name']}
+                        field_ref = attr_ref.find('./field')
+                        if field_ref is not None and 'name' in field_ref.attrib:
+                            ref_dict['field'] = field_ref.attrib['name']
+                        constraints['minAttributeRef'] = ref_dict
+
+            if to_elem is not None:
+                if 'value' in to_elem.attrib:
+                    constraints['max'] = parse_numeric_value(to_elem.attrib['value'])
+                else:
+                    # Parse dynamic constraint reference
+                    attr_ref = to_elem.find('./attribute')
+                    if attr_ref is not None and 'name' in attr_ref.attrib:
+                        ref_dict = {'attribute': attr_ref.attrib['name']}
+                        field_ref = attr_ref.find('./field')
+                        if field_ref is not None and 'name' in field_ref.attrib:
+                            ref_dict['field'] = field_ref.attrib['name']
+                        constraints['maxAttributeRef'] = ref_dict
+
+        # Parse string length constraints
+        for constraint_type in ['minLength', 'maxLength']:
+            elem = constraint_elem.find(f'./{constraint_type}')
+            if elem is not None and 'value' in elem.attrib:
+                constraints[constraint_type] = int(elem.attrib['value'])
+
+        # Parse list count constraints
+        for constraint_type, xml_tag in [('minCount', 'minCount'), ('maxCount', 'maxCount')]:
+            elem = constraint_elem.find(f'./{xml_tag}')
+            if elem is not None:
+                if 'value' in elem.attrib:
+                    constraints[constraint_type] = int(elem.attrib['value'])
+                else:
+                    # Parse dynamic constraint reference
+                    attr_ref = elem.find('./attribute')
+                    if attr_ref is not None and 'name' in attr_ref.attrib:
+                        ref_dict = {'attribute': attr_ref.attrib['name']}
+                        field_ref = attr_ref.find('./field')
+                        if field_ref is not None and 'name' in field_ref.attrib:
+                            ref_dict['field'] = field_ref.attrib['name']
+                        constraints[f'{constraint_type.replace("Count", "")}AttributeRef'] = ref_dict
+
+        return constraints
+
     def parse_attributes(self) -> dict[uint, XmlAttribute]:
         attributes: dict[uint, XmlAttribute] = {}
         for element, conformance_xml, access_xml in self.attribute_elements:
@@ -794,11 +907,14 @@ class ClusterParser:
             write_optional = False
             if write_access not in [None, ACCESS_CONTROL_PRIVILEGE_ENUM.kUnknownEnumValue]:
                 write_optional = self.parse_write_optional(element, access_xml)
+            # Parse constraints for this attribute
+            constraints = self.parse_attribute_constraints(element)
             attributes[code] = XmlAttribute(name=element.attrib['name'], datatype=datatype,
                                             conformance=conformance,
                                             read_access=get_access_privilege_or_unknown(read_access),
                                             write_access=get_access_privilege_or_unknown(write_access),
-                                            write_optional=write_optional)
+                                            write_optional=write_optional,
+                                            constraints=constraints)
         # Add in the global attributes for the base class
         for id in GlobalAttributeIds:
             # TODO: Add data type here. Right now it's unused. We should parse this from the spec.
@@ -1687,169 +1803,3 @@ def dm_from_spec_version(specification_version: uint) -> PrebuiltDataModelDirect
         raise ConformanceException(f"Unknown specification_version 0x{specification_version:08X}")
 
     return version_to_dm[specification_version]
-
-
-def get_xml_path(xml_clusters: dict[uint, XmlCluster], cluster_id: int, spec_version: PrebuiltDataModelDirectory) -> Optional[Traversable]:
-    """Get the XML file path for a cluster.
-
-    Args:
-        xml_clusters: Dictionary of cluster ID to XmlCluster objects
-        cluster_id: The cluster ID to find XML for
-        spec_version: The PrebuiltDataModelDirectory for the spec version
-
-    Returns:
-        Traversable object pointing to the XML file, or None if not found
-    """
-    xml_cluster = xml_clusters.get(uint(cluster_id))
-    if not xml_cluster:
-        return None
-
-    # Special mappings for non-standard XML filenames
-    special_mappings = {
-        "On/Off": "OnOff.xml",
-        "Time Format Localization": "LocalizationTimeFormat.xml",
-        "Unit Localization": "LocalizationUnit.xml",
-        "Access Control": "ACL-Cluster.xml",
-        "OTA Software Update Requestor": "OTARequestor.xml",
-        "Pump Configuration and Control": "PumpConfigurationControl.xml",
-        "Valve Configuration and Control": "ValveConfigurationControl.xml",
-        "HEPA Filter Monitoring": "ResourceMonitoring.xml",
-        "Activated Carbon Filter Monitoring": "ResourceMonitoring.xml",
-    }
-
-    # Build list of possible filenames
-    if xml_cluster.name in special_mappings:
-        possible_names = [special_mappings[xml_cluster.name]]
-    else:
-        cluster_name_no_spaces = xml_cluster.name.replace(" ", "")
-        cluster_name_with_dashes = xml_cluster.name.replace(" ", "-")
-        possible_names = [
-            f"{cluster_name_no_spaces}Cluster.xml",
-            f"{cluster_name_no_spaces}.xml",
-            f"{cluster_name_with_dashes}-Cluster.xml",
-            f"{cluster_name_no_spaces}-Cluster.xml",
-        ]
-
-    # Find XML file dynamically
-    xml_dir = get_data_model_directory(spec_version, DataModelLevel.kCluster)
-
-    for possible_name in possible_names:
-        file_path = xml_dir / possible_name
-        if file_path.is_file():
-            return file_path
-
-    return None
-
-
-def parse_constraint_references(elem, constraint_dict: dict, prefix: str):
-    """Parse dynamic constraint references (attribute/field references)."""
-    attr_ref = elem.find('./attribute')
-    if attr_ref is not None and 'name' in attr_ref.attrib:
-        ref_attr_name = attr_ref.attrib['name']
-        field_ref = attr_ref.find('./field')
-
-        if field_ref is not None and 'name' in field_ref.attrib:
-            constraint_dict[f'{prefix}AttributeRef'] = {
-                'attribute': ref_attr_name,
-                'field': field_ref.attrib['name']
-            }
-        else:
-            constraint_dict[f'{prefix}AttributeRef'] = {'attribute': ref_attr_name}
-
-
-def parse_attribute_constraints(xml_clusters: dict[uint, XmlCluster], cluster_id: int, attribute_id: int, spec_version: PrebuiltDataModelDirectory) -> dict:
-    """Parse constraint information from XML for a specific attribute.
-
-    Args:
-        xml_clusters: Dictionary of cluster ID to XmlCluster objects
-        cluster_id: The cluster ID containing the attribute
-        attribute_id: The attribute ID to parse constraints for
-        spec_version: The PrebuiltDataModelDirectory for the spec version
-
-    Returns:
-        Dictionary of constraint information (min, max, minLength, maxLength, etc.)
-    """
-    xml_file = get_xml_path(xml_clusters, cluster_id, spec_version)
-    if not xml_file:
-        return {}
-
-    try:
-        # Open the file using the Traversable interface (works for both Path and zipfile.Path)
-        with xml_file.open('r', encoding='utf-8') as f:
-            tree = ElementTree.parse(f)
-            root = tree.getroot()
-
-        # Find the attribute element - try different hex formats
-        attr_elem = None
-        search_ids = [
-            f"0x{attribute_id:04X}",
-            f"0x{attribute_id:X}",
-        ]
-
-        for search_id in search_ids:
-            attr_elem = root.find(f".//attribute[@id='{search_id}']")
-            if attr_elem is not None:
-                break
-
-        if not attr_elem:
-            return {}
-
-        # Parse constraint element
-        constraint_elem = attr_elem.find('./constraint')
-        if constraint_elem is None:
-            return {}
-
-        constraints = {}
-
-        # Parse min/max/between constraints
-        min_elem = constraint_elem.find('./min')
-        if min_elem is not None:
-            if 'value' in min_elem.attrib:
-                constraints['min'] = int(min_elem.attrib['value'])
-            else:
-                parse_constraint_references(min_elem, constraints, 'min')
-
-        max_elem = constraint_elem.find('./max')
-        if max_elem is not None:
-            if 'value' in max_elem.attrib:
-                constraints['max'] = int(max_elem.attrib['value'])
-            else:
-                parse_constraint_references(max_elem, constraints, 'max')
-
-        between_elem = constraint_elem.find('./between')
-        if between_elem is not None:
-            from_elem = between_elem.find('./from')
-            to_elem = between_elem.find('./to')
-
-            if from_elem is not None:
-                if 'value' in from_elem.attrib:
-                    constraints['min'] = int(from_elem.attrib['value'])
-                else:
-                    parse_constraint_references(from_elem, constraints, 'min')
-
-            if to_elem is not None:
-                if 'value' in to_elem.attrib:
-                    constraints['max'] = int(to_elem.attrib['value'])
-                else:
-                    parse_constraint_references(to_elem, constraints, 'max')
-
-        # Parse string length constraints
-        for constraint_type in ['minLength', 'maxLength']:
-            elem = constraint_elem.find(f'./{constraint_type}')
-            if elem is not None and 'value' in elem.attrib:
-                constraints[constraint_type] = int(elem.attrib['value'])
-
-        # Parse list count constraints
-        for constraint_type, xml_tag in [('minCount', 'minCount'), ('maxCount', 'maxCount')]:
-            elem = constraint_elem.find(f'./{xml_tag}')
-            if elem is not None:
-                if 'value' in elem.attrib:
-                    constraints[constraint_type] = int(elem.attrib['value'])
-                else:
-                    parse_constraint_references(elem, constraints, constraint_type.replace('Count', ''))
-
-        return constraints
-
-    except Exception as e:
-        LOGGER.warning(f"Exception parsing constraints for cluster 0x{cluster_id:04X} attr 0x{attribute_id:04X}: {e}")
-        return {}
