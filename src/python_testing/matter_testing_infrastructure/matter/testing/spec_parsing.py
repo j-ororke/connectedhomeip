@@ -833,7 +833,7 @@ class ClusterParser:
             # Handle hexadecimal strings (e.g., '0x001F')
             if value_str.startswith(('0x', '0X')):
                 return int(value_str, 16)
-            
+
             # Try parsing as float (handles both int and float strings)
             value = float(value_str)
             # Return as int if it's a whole number, otherwise as float
