@@ -815,10 +815,10 @@ class ClusterParser:
 
     def parse_attribute_constraints(self, element: ElementTree.Element) -> Optional[Constraints]:
         """Parse constraint information from an attribute element.
-        
+
         Args:
             element: The attribute XML element
-            
+
         Returns:
             Constraints object, or None if no constraints are defined
         """
