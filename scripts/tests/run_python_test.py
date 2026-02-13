@@ -383,15 +383,7 @@ def monitor_app_restart_requests(
                     log.error("Failed to read restart flag file: %r", e)
                     restart_mode = "restart"  # Default to multiple restarts
 
-                # Handle different reboot modes
-                if restart_mode == "restart_once":
-                    # Single reboot mode - disable monitoring after this reboot
-                    allow_multiple_restarts = False
-                    log.info("Single restart mode - will stop monitoring after this restart")
-                elif restart_mode == "restart":
-                    # Multiple restart mode - continue monitoring
-                    allow_multiple_restarts = True
-                    log.info("Multiple restart mode - will continue monitoring for additional restarts")
+                allow_multiple_restarts = (restart_mode != "restart_once")
 
                 # Perform the reboot
                 new_app_manager = AppProcessManager(app, app_args, app_ready_pattern, stream_output, app_stdin_pipe)
@@ -400,11 +392,8 @@ def monitor_app_restart_requests(
                     new_app_manager.start()
                     app_manager_ref[0] = new_app_manager
 
-                    '''
-                    Note: Below is just a placeholder for the Factory reset functionality that is currently being implemented by
-                    Raul in PR https://github.com/project-chip/connectedhomeip/pull/42848
-                    it is not currently implemented here as of yet.
-                    '''
+                    # Factory reset not yet implemented. This work is in progress, see
+                    # https://github.com/project-chip/connectedhomeip/pull/42848
                     if restart_mode == "reset":
                         log.info("App factory reset completed")
                     else:
