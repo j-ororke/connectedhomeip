@@ -15,6 +15,7 @@
 #    limitations under the License.
 #
 
+import contextlib
 import importlib
 import importlib.resources as pkg_resources
 import logging
@@ -930,19 +931,15 @@ class ClusterParser:
         # Parse string length constraints
         min_length_elem = constraint_elem.find('./minLength')
         if min_length_elem is not None and 'value' in min_length_elem.attrib:
-            try:
-                min_length = int(min_length_elem.attrib['value'], 0)
-            except ValueError:
+            with contextlib.suppress(ValueError):
                 # Value is not a simple integer, ignore for now
-                pass
+                min_length = int(min_length_elem.attrib['value'], 0)
 
         max_length_elem = constraint_elem.find('./maxLength')
         if max_length_elem is not None and 'value' in max_length_elem.attrib:
-            try:
-                max_length = int(max_length_elem.attrib['value'], 0)
-            except ValueError:
+            with contextlib.suppress(ValueError):
                 # Value is not a simple integer, ignore for now
-                pass
+                max_length = int(max_length_elem.attrib['value'], 0)
 
         # Parse list count constraints
         min_count_elem = constraint_elem.find('./minCount')
