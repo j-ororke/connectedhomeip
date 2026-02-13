@@ -834,7 +834,7 @@ class ClusterParser:
                 # Handle hexadecimal strings (e.g., '0x001F')
                 if value_str.startswith(('0x', '0X')):
                     return int(value_str, 16)
-                
+
                 # Try parsing as float (handles both int and float strings)
                 value = float(value_str)
                 # Return as int if it's a whole number, otherwise as float
@@ -854,7 +854,7 @@ class ClusterParser:
                 field_ref = attr_ref.find('./field')
                 field_name = field_ref.attrib['name'] if field_ref is not None and 'name' in field_ref.attrib else None
                 return ConstraintReference(attribute=attr_name, field=field_name)
-            
+
             # If no child element but we have a value string, try to extract attribute name
             # Handle cases like 'MaxMeasuredValue - 1' or 'SomeAttribute'
             if value_str and not value_str.replace('.', '').replace('-', '').replace('+', '').replace(' ', '').isdigit():
@@ -864,7 +864,7 @@ class ClusterParser:
                 match = re.match(r'^([A-Za-z_][A-Za-z0-9_]*)', value_str.strip())
                 if match:
                     return ConstraintReference(attribute=match.group(1), field=None)
-            
+
             return None
 
         # Initialize constraint values
