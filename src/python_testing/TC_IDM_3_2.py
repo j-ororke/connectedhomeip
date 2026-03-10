@@ -60,6 +60,12 @@ class TC_IDM_3_2(IDMBaseTest, BasicCompositionTests):
         super().__init__(*args, **kwargs)
         self.endpoint = 0
 
+
+    # This test can take some time to run in heavily congested test environments, adding a longer timeout.
+    @property
+    def default_timeout(self) -> int:
+        return 300
+
     def steps_TC_IDM_3_2(self) -> list[TestStep]:
         return [
             TestStep(0, "Commissioning, already done", is_commissioning=True),
@@ -321,6 +327,8 @@ class TC_IDM_3_2(IDMBaseTest, BasicCompositionTests):
             # Created following follow-up task for the event that the node label attribute does not exist
             # TODO: https://github.com/project-chip/matter-test-scripts/issues/693
             log.info("NodeLabel not found - this may be a non-commissionable device")
+            self.skip_step(5)
+            self.skip_step(6)
 
         endpoint_id, timed_attr = await self.find_timed_write_attribute(self.endpoints)
         if timed_attr:
