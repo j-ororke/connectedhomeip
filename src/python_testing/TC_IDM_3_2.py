@@ -60,8 +60,8 @@ class TC_IDM_3_2(IDMBaseTest, BasicCompositionTests):
         super().__init__(*args, **kwargs)
         self.endpoint = 0
 
-
     # This test can take some time to run in heavily congested test environments, adding a longer timeout.
+
     @property
     def default_timeout(self) -> int:
         return 300
@@ -192,7 +192,7 @@ class TC_IDM_3_2(IDMBaseTest, BasicCompositionTests):
 
         if found_unsupported_attr:
             asserts.assert_equal(write_status2, Status.UnsupportedAttribute,
-                                    f"Write to unsupported attribute should return UNSUPPORTED_ATTRIBUTE, got {write_status2}")
+                                 f"Write to unsupported attribute should return UNSUPPORTED_ATTRIBUTE, got {write_status2}")
 
         else:
             self.skip_step(3)
