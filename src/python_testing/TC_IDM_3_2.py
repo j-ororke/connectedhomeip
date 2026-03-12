@@ -327,8 +327,6 @@ class TC_IDM_3_2(IDMBaseTest, BasicCompositionTests):
             # Created following follow-up task for the event that the node label attribute does not exist
             # TODO: https://github.com/project-chip/matter-test-scripts/issues/693
             log.info("NodeLabel not found - this may be a non-commissionable device")
-            self.skip_step(5)
-            self.skip_step(6)
 
         endpoint_id, timed_attr = await self.find_timed_write_attribute(self.endpoints)
         if timed_attr:
