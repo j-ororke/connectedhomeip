@@ -91,7 +91,7 @@ class TC_RR_1_1(MatterBaseTest):
         for subscription in self._subscriptions:
             subscription.Shutdown()
         super().teardown_class()
-        
+
     @async_test_body
     async def test_TC_RR_1_1(self):
         dev_ctrl = self.default_controller
