@@ -30,6 +30,7 @@
 #       --passcode 20202021
 #       --trace-to json:${TRACE_TEST_JSON}.json
 #       --trace-to perfetto:${TRACE_TEST_PERFETTO}.perfetto
+#       --no-wildcard-subscription
 #     factory-reset: true
 #     quiet: true
 # === END CI TEST ARGUMENTS ===
@@ -90,7 +91,7 @@ class TC_RR_1_1(MatterBaseTest):
         for subscription in self._subscriptions:
             subscription.Shutdown()
         super().teardown_class()
-
+        
     @async_test_body
     async def test_TC_RR_1_1(self):
         dev_ctrl = self.default_controller
