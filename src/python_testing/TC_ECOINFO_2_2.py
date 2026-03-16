@@ -169,15 +169,23 @@ class TC_ECOINFO_2_2(MatterBaseTest):
         self.step(1)
         self.step("1a")
         root_node_endpoint = 0
-        root_part_list = await dev_ctrl.ReadAttribute(dut_node_id, [(root_node_endpoint, Clusters.Descriptor.Attributes.PartsList)])
+        parts_list_1a = await self.read_single_attribute_check_success(
+            dev_ctrl=dev_ctrl,
+            node_id=dut_node_id,
+            cluster=Clusters.Descriptor,
+            attribute=Clusters.Descriptor.Attributes.PartsList,
+            endpoint=root_node_endpoint)
 
         self.step("1b")
-        set_of_endpoints_step_1 = set(root_part_list[root_node_endpoint]
-                                      [Clusters.Descriptor][Clusters.Descriptor.Attributes.PartsList])
+        set_of_endpoints_step_1 = set(parts_list_1a)
         list_of_aggregator_endpoints = []
         for endpoint in set_of_endpoints_step_1:
-            device_type_list_read = await dev_ctrl.ReadAttribute(dut_node_id, [(endpoint, Clusters.Descriptor.Attributes.DeviceTypeList)])
-            device_type_list = device_type_list_read[endpoint][Clusters.Descriptor][Clusters.Descriptor.Attributes.DeviceTypeList]
+            device_type_list = await self.read_single_attribute_check_success(
+                dev_ctrl=dev_ctrl,
+                node_id=dut_node_id,
+                cluster=Clusters.Descriptor,
+                attribute=Clusters.Descriptor.Attributes.DeviceTypeList,
+                endpoint=endpoint)
             for device_type in device_type_list:
                 if device_type.deviceType == _DEVICE_TYPE_AGGREGATOR:
                     list_of_aggregator_endpoints.append(endpoint)
@@ -200,9 +208,13 @@ class TC_ECOINFO_2_2(MatterBaseTest):
             await asyncio.sleep(5)
 
         self.step("2b")
-        root_part_list_step_2 = await dev_ctrl.ReadAttribute(dut_node_id, [(root_node_endpoint, Clusters.Descriptor.Attributes.PartsList)])
-        set_of_endpoints_step_2 = set(
-            root_part_list_step_2[root_node_endpoint][Clusters.Descriptor][Clusters.Descriptor.Attributes.PartsList])
+        parts_list_2b = await self.read_single_attribute_check_success(
+            dev_ctrl=dev_ctrl,
+            node_id=dut_node_id,
+            cluster=Clusters.Descriptor,
+            attribute=Clusters.Descriptor.Attributes.PartsList,
+            endpoint=root_node_endpoint)
+        set_of_endpoints_step_2 = set(parts_list_2b)
 
         asserts.assert_true(set_of_endpoints_step_2.issuperset(set_of_endpoints_step_1), "Expected only new endpoints to be added")
         unique_endpoints_set = set_of_endpoints_step_2 - set_of_endpoints_step_1
@@ -243,9 +255,13 @@ class TC_ECOINFO_2_2(MatterBaseTest):
             await asyncio.sleep(2)
 
         self.step("3b")
-        root_part_list_step_3 = await dev_ctrl.ReadAttribute(dut_node_id, [(root_node_endpoint, Clusters.Descriptor.Attributes.PartsList)])
-        set_of_endpoints_step_3 = set(
-            root_part_list_step_3[root_node_endpoint][Clusters.Descriptor][Clusters.Descriptor.Attributes.PartsList])
+        parts_list_3b = await self.read_single_attribute_check_success(
+            dev_ctrl=dev_ctrl,
+            node_id=dut_node_id,
+            cluster=Clusters.Descriptor,
+            attribute=Clusters.Descriptor.Attributes.PartsList,
+            endpoint=root_node_endpoint)
+        set_of_endpoints_step_3 = set(parts_list_3b)
 
         asserts.assert_equal(set_of_endpoints_step_3, set_of_endpoints_step_1,
                              "Expected set of endpoints after removal to be identical to when test started")
