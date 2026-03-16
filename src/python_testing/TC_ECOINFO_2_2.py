@@ -205,7 +205,7 @@ class TC_ECOINFO_2_2(MatterBaseTest):
                 self.dut_fsa_stdin.write(f"pairing onnetwork 2 {self.th_server_setup_params.passcode}\n")
             self.dut_fsa_stdin.flush()
             # Wait for the commissioning to complete.
-            await asyncio.sleep(5)
+            await asyncio.sleep(20)
 
         self.step("2b")
         parts_list_2b = await self.read_single_attribute_check_success(
