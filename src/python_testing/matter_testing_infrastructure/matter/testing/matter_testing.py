@@ -28,7 +28,7 @@ import subprocess
 import textwrap
 import time
 import typing
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta, timezone
 from enum import IntFlag
 from typing import Any, Callable, List, Optional, Type, Union
@@ -237,7 +237,58 @@ class MatterBaseTest(base_test.BaseTestClass):
             for problem in self.problems:
                 LOGGER.info(str(problem))
             LOGGER.info("###########################################################")
+        self._log_execution_parameters_summary()
         super().teardown_class()
+
+    def _format_summary_value(self, key: str, value: Any) -> str:
+        """Format values for end-of-test summary logs."""
+        if isinstance(value, bytes):
+            return f"<bytes:{len(value)}>"
+        if isinstance(value, list) and len(value) > 8:
+            head = ", ".join(repr(v) for v in value[:5])
+            return f"[{head}, ...] (len={len(value)})"
+
+        rendered = repr(value)
+        return rendered
+
+    def _log_execution_parameters_summary(self):
+        """Log execution parameters at test end to aid result triage."""
+        try:
+            meta = asdict(self.matter_test_config)
+        except Exception as ex:
+            LOGGER.warning("Unable to collect execution parameter summary: %s", ex)
+            return
+
+        config_fields: dict[str, Any] = {}
+        for key, value in meta.items():
+            if key == "global_test_params":
+                continue
+            if value in (None, [], {}, ""):
+                continue
+            config_fields[key] = value
+
+        named_args: dict[str, Any] = {}
+        for key, value in self.matter_test_config.global_test_params.items():
+            if key == "meta_config":
+                continue
+            named_args[key] = value
+
+        LOGGER.info("===== EXECUTION FLAGS SUMMARY BEGIN =====")
+
+        if config_fields:
+            LOGGER.info("Config values:")
+            for key in sorted(config_fields.keys()):
+                LOGGER.info("  - %s: %s", key, self._format_summary_value(key, config_fields[key]))
+
+        if named_args:
+            LOGGER.info("\n\nNamed args:")
+            for key in sorted(named_args.keys()):
+                LOGGER.info("  - %s: %s", key, self._format_summary_value(key, named_args[key]))
+
+        if not config_fields and not named_args:
+            LOGGER.info("  (no execution parameters were captured)")
+
+        LOGGER.info("===== EXECUTION FLAGS SUMMARY END =====")
 
     def _dump_device_attributes_on_failure(self):
         """
