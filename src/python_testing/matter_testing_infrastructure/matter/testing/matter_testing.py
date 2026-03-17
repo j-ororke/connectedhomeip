@@ -248,8 +248,7 @@ class MatterBaseTest(base_test.BaseTestClass):
             head = ", ".join(repr(v) for v in value[:5])
             return f"[{head}, ...] (len={len(value)})"
 
-        rendered = repr(value)
-        return rendered
+        return repr(value)
 
     def _log_execution_parameters_summary(self):
         """Log execution parameters at test end to aid result triage."""
@@ -286,9 +285,6 @@ class MatterBaseTest(base_test.BaseTestClass):
             LOGGER.info("\n\nNamed args:")
             for key in sorted(named_args.keys()):
                 LOGGER.info("  - %s: %s", key, self._format_summary_value(key, named_args[key]))
-
-        if not config_fields and not named_args:
-            LOGGER.info("  (no execution parameters were captured)")
 
         LOGGER.info("===== EXECUTION FLAGS SUMMARY END =====")
 
