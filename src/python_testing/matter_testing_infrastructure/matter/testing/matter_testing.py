@@ -271,6 +271,8 @@ class MatterBaseTest(base_test.BaseTestClass):
         for key, value in self.matter_test_config.global_test_params.items():
             if key == "meta_config":
                 continue
+            if value in (None, [], {}, ""):
+                continue
             named_args[key] = value
 
         LOGGER.info("===== EXECUTION FLAGS SUMMARY BEGIN =====")
