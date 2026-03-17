@@ -143,7 +143,8 @@ class TestSpecParsingSelection(DeviceConformanceTests):
         self._create_device(spec_version, tc_enabled)
         # build the spec XMLs for the stated version
         self.build_spec_xmls()
-        success, problems = self.check_conformance(ignore_in_progress_test_event_only_disallowed_for_certification=False, is_ci=False, allow_provisional_test_event_only_disallowed_for_certification=False)
+        success, problems = self.check_conformance(ignore_in_progress_test_event_only_disallowed_for_certification=False,
+                                                   is_ci=False, allow_provisional_test_event_only_disallowed_for_certification=False)
         problem_strs = [str(p) for p in problems]
         problem_str = "\n".join(problem_strs)
         spec_version_str = f'{spec_version:08X}' if spec_version is not None else "None (1.2)"
