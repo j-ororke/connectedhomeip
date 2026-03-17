@@ -97,7 +97,7 @@ class MinimalRepresentationChecker(DeviceConformanceTests):
                     xml_command = self.xml_clusters[cluster_id].accepted_commands[command_id]
                     conformance_decision = xml_command.conformance(conformance_assessment_data)
                     if conformance_decision == ConformanceDecision.OPTIONAL:
-                        minimal.command_ids.append(command_id)  
+                        minimal.command_ids.append(command_id)
 
                 representation[endpoint_id][cluster_id] = minimal
 
