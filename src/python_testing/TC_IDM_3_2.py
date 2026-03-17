@@ -169,34 +169,40 @@ class TC_IDM_3_2(IDMBaseTest, BasicCompositionTests):
                 for attr_id in all_attrs - dut_attrs:
                     if global_attribute_ids.attribute_id_type(attr_id) == global_attribute_ids.AttributeIdType.kStandardNonGlobal:
                         unsupported_candidates.append(
-                            (endpoint_id, ClusterObjects.ALL_ATTRIBUTES[cluster_type.id][attr_id])
+                            (endpoint_id, cluster_type.id, ClusterObjects.ALL_ATTRIBUTES[cluster_type.id][attr_id])
                         )
 
-        # Iterate candidates until we find one whose type can be serialized with a simple 0 value.
-        # Some attribute types are structs/lists and will raise TypeError when passed 0 during TLV
-        # encoding; skip those and try the next candidate.
+        # Iterate candidates until we find one whose type can be serialized.
+        # Some attribute types cannot accept a numeric dummy value (0), so try a small
+        # fallback set that also covers string/octet-string shapes.
+        test_values = (0, "", b"")
         write_status2 = None
         found_unsupported_attr = False
-        for endpoint_id, candidate_attr in unsupported_candidates:
-            try:
-                write_status2 = await self.write_single_attribute(
-                    attribute_value=candidate_attr(0),
-                    endpoint_id=endpoint_id,
-                    expect_success=False
-                )
-                log.info(f"Testing unsupported attribute: {candidate_attr}")
-                found_unsupported_attr = True
+        for endpoint_id, cluster_id, candidate_attr in unsupported_candidates:
+            for test_value in test_values:
+                try:
+                    write_status2 = await self.write_single_attribute(
+                        attribute_value=candidate_attr(test_value),
+                        endpoint_id=endpoint_id,
+                        expect_success=False
+                    )
+                    log.info(
+                        "Testing unsupported attribute: %s, cluster_id=%s, endpoint_id=%s, test_value=%r",
+                        candidate_attr, cluster_id, endpoint_id, test_value
+                    )
+                    found_unsupported_attr = True
+                    break
+                except (TypeError, ValueError) as e:
+                    log.info(
+                        "Attribute %s not serializable with test value %r (%s): %s",
+                        candidate_attr, test_value, type(e).__name__, e
+                    )
+            if found_unsupported_attr:
                 break
-            except TypeError as e:
-                log.info(f"Attribute {candidate_attr} not serializable with value 0, trying next candidate: {e}")
 
         if found_unsupported_attr:
             asserts.assert_equal(write_status2, Status.UnsupportedAttribute,
                                  f"Write to unsupported attribute should return UNSUPPORTED_ATTRIBUTE, got {write_status2}")
-
-        else:
-            self.skip_step(3)
-            log.info("No unsupported attributes found to test")
 
         self.skip_step(4)
         # Currently skipping step 4 as we have removed support in the python framework for this functionality currently.
