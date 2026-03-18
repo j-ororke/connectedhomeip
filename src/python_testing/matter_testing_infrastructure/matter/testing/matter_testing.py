@@ -247,7 +247,9 @@ class MatterBaseTest(base_test.BaseTestClass):
         if isinstance(value, list) and len(value) > 8:
             head = ", ".join(repr(v) for v in value[:5])
             return f"[{head}, ...] (len={len(value)})"
-
+        if key == "pics" and isinstance(value, dict):
+            lines = "\n".join(f"      {k}: {v}" for k, v in sorted(value.items()))
+            return f"({len(value)})\n{lines}"
         return repr(value)
 
     def _log_execution_parameters_summary(self):
@@ -265,6 +267,8 @@ class MatterBaseTest(base_test.BaseTestClass):
             if value in (None, [], {}, ""):
                 continue
             config_fields[key] = value
+            if isinstance(value, Path):
+                value = str(value)      
 
         named_args: dict[str, Any] = {}
         for key, value in self.matter_test_config.global_test_params.items():
