@@ -75,6 +75,8 @@ LOGGER.setLevel(logging.INFO)
 
 DiscoveryFilterType = ChipDeviceCtrl.DiscoveryFilterType
 
+_SUMMARY_MAX_HEX_CHARS = 128
+
 
 class TestError(Exception):
     pass
@@ -243,7 +245,10 @@ class MatterBaseTest(base_test.BaseTestClass):
     def _format_summary_value(self, key: str, value: Any) -> str:
         """Format values for end-of-test summary logs."""
         if isinstance(value, bytes):
-            return f"<bytes:{len(value)}>"
+            hex_value = value.hex()
+            if len(hex_value) > _SUMMARY_MAX_HEX_CHARS:
+                return f"0x{hex_value[:_SUMMARY_MAX_HEX_CHARS]}... (truncated, {len(value)} bytes)"
+            return f"0x{hex_value}"
         if isinstance(value, list) and len(value) > 8:
             head = ", ".join(repr(v) for v in value[:5])
             return f"[{head}, ...] (len={len(value)})"
@@ -264,11 +269,11 @@ class MatterBaseTest(base_test.BaseTestClass):
         for key, value in meta.items():
             if key == "global_test_params":
                 continue
+            if isinstance(value, os.PathLike):
+                value = os.fspath(value)
             if value in (None, [], {}, ""):
                 continue
             config_fields[key] = value
-            if isinstance(value, Path):
-                value = str(value)      
 
         named_args: dict[str, Any] = {}
         for key, value in self.matter_test_config.global_test_params.items():
