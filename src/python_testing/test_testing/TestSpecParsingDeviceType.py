@@ -59,6 +59,7 @@ class TestSpecParsingDeviceType(DeviceConformanceTests):
             print(self.problems)
 
     def setup_class(self):
+        super().setup_class()
         self.device_type_id = 0xBBEF
         self.revision = 2
         self.classification_class = "simple"
@@ -111,8 +112,7 @@ class TestSpecParsingDeviceType(DeviceConformanceTests):
                                     </clusters>
                                     </deviceType>""")
         # We're going to use the real cluster stuff so I don't need to write new XML. Device type uses Identify and Groups.
-        super().setup_class()
-
+       
     def test_device_type_clusters(self):
         xml = self.template.render(device_type_id=self.device_type_id, revision=self.revision, classification_class=self.classification_class,
                                    classification_scope=self.classification_scope, clusters=self.clusters)

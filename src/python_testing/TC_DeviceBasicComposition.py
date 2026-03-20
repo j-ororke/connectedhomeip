@@ -45,7 +45,10 @@
 #   run3: # tests PASE connection using QR code (12.1 only)
 #     app: ${CHIP_LOCK_APP}
 #     app-args: --discriminator 1234 --KVS kvs1
-#     script-args: --storage-path admin_storage.json --qr-code MT:-24J0Q1212-10648G00
+#     script-args: >
+#       --storage-path admin_storage.json
+#       --qr-code MT:-24J0Q1212-10648G00
+#       --no-wildcard-subscription
 #     factory-reset: true
 #     quiet: true
 #   run4: # tests PASE connection using discriminator and passcode (12.1 only)
