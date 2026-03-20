@@ -30,12 +30,16 @@
 #       --trace-to json:${TRACE_TEST_JSON}.json
 #       --trace-to perfetto:${TRACE_TEST_PERFETTO}.perfetto
 #       --debug
+#       --no-wildcard-subscription
 #     factory-reset: true
 #     quiet: true
 #   run2: # tests PASE connection using manual code (12.1 only)
 #     app: ${CHIP_LOCK_APP}
 #     app-args: --discriminator 1234 --KVS kvs1
-#     script-args: --storage-path admin_storage.json --manual-code 10054912339
+#     script-args: >
+#       --storage-path admin_storage.json
+#       --manual-code 10054912339
+#       --no-wildcard-subscription
 #     factory-reset: true
 #     quiet: true
 #   run3: # tests PASE connection using QR code (12.1 only)
@@ -51,6 +55,7 @@
 #       --storage-path admin_storage.json
 #       --discriminator 1234
 #       --passcode 20202021
+#       --no-wildcard-subscription
 #     factory-reset: true
 #     quiet: true
 #   run5: # Tests CASE connection using manual code (12.1 only)
@@ -60,6 +65,7 @@
 #       --storage-path admin_storage.json
 #       --manual-code 10054912339
 #       --commissioning-method on-network
+#       --no-wildcard-subscription
 #     factory-reset: true
 #     quiet: true
 #   run6: # Tests CASE connection using QR code (12.1 only)
@@ -69,6 +75,7 @@
 #       --storage-path admin_storage.json
 #       --qr-code MT:-24J0Q1212-10648G00
 #       --commissioning-method on-network
+#       --no-wildcard-subscription
 #     factory-reset: true
 #     quiet: true
 #   run7: # Tests CASE connection using manual discriminator and passcode (12.1 only)
@@ -79,18 +86,22 @@
 #       --discriminator 1234
 #       --passcode 20202021
 #       --commissioning-method on-network
+#       --no-wildcard-subscription
 #     factory-reset: true
 #     quiet: true
 #   run8: # Tests reusing storage from run7 (i.e. factory-reset=false)
 #     app: ${CHIP_LOCK_APP}
 #     app-args: --discriminator 1234 --KVS kvs1
-#     script-args: --storage-path admin_storage.json
+#     script-args: >
+#       --storage-path admin_storage.json
+#       --no-wildcard-subscription
 #     factory-reset: false
 #     quiet: true
 #   run9: # Test using the generated attribute wildcard file from previous run
 #     script-args:
 #       --string-arg test_from_file:device_dump_0xFFF1_0x8001_1.json
 #       --PICS src/app/tests/suites/certification/ci-pics-values
+#       --no-wildcard-subscription
 #     factory-reset: false
 #     quiet: true
 #   run10: # Tests against energy-management-app
@@ -102,6 +113,7 @@
 #       --PICS src/app/tests/suites/certification/ci-pics-values
 #       --trace-to json:${TRACE_TEST_JSON}.json
 #       --trace-to perfetto:${TRACE_TEST_PERFETTO}.perfetto
+#       --no-wildcard-subscription
 #     factory-reset: true
 #     quiet: true
 #   run11: # Tests against lit-icd app
@@ -113,6 +125,7 @@
 #       --PICS src/app/tests/suites/certification/ci-pics-values
 #       --trace-to json:${TRACE_TEST_JSON}.json
 #       --trace-to perfetto:${TRACE_TEST_PERFETTO}.perfetto
+#       --no-wildcard-subscription
 #     factory-reset: true
 #     quiet: true
 #   run12: # Tests against microwave-oven app
@@ -124,6 +137,7 @@
 #       --PICS src/app/tests/suites/certification/ci-pics-values
 #       --trace-to json:${TRACE_TEST_JSON}.json
 #       --trace-to perfetto:${TRACE_TEST_PERFETTO}.perfetto
+#       --no-wildcard-subscription
 #     factory-reset: true
 #     quiet: true
 #   run13: # Tests against chip-rvc app
@@ -135,6 +149,7 @@
 #       --PICS src/app/tests/suites/certification/ci-pics-values
 #       --trace-to json:${TRACE_TEST_JSON}.json
 #       --trace-to perfetto:${TRACE_TEST_PERFETTO}.perfetto
+#       --no-wildcard-subscription
 #     factory-reset: true
 #     quiet: true
 #   run14: # Tests against network-management-app
@@ -146,6 +161,7 @@
 #       --PICS src/app/tests/suites/certification/ci-pics-values
 #       --trace-to json:${TRACE_TEST_JSON}.json
 #       --trace-to perfetto:${TRACE_TEST_PERFETTO}.perfetto
+#       --no-wildcard-subscription
 #     factory-reset: true
 #     quiet: true
 #   run15: # Tests against lighting-app-data-mode-no-unique-id
@@ -157,6 +173,7 @@
 #       --PICS src/app/tests/suites/certification/ci-pics-values
 #       --trace-to json:${TRACE_TEST_JSON}.json
 #       --trace-to perfetto:${TRACE_TEST_PERFETTO}.perfetto
+#       --no-wildcard-subscription
 #     factory-reset: true
 #     quiet: true
 #   run16: # Tests against all-devices-app - default (contactsensor)
@@ -170,6 +187,7 @@
 #       --PICS src/app/tests/suites/certification/ci-pics-values
 #       --trace-to json:${TRACE_TEST_JSON}.json
 #       --trace-to perfetto:${TRACE_TEST_PERFETTO}.perfetto
+#       --no-wildcard-subscription
 #     factory-reset: true
 #     quiet: true
 #   run17: # Tests against all-devices-app - on/off light
@@ -184,6 +202,7 @@
 #       --PICS src/app/tests/suites/certification/ci-pics-values
 #       --trace-to json:${TRACE_TEST_JSON}.json
 #       --trace-to perfetto:${TRACE_TEST_PERFETTO}.perfetto
+#       --no-wildcard-subscription
 #     factory-reset: true
 #     quiet: true
 # === END CI TEST ARGUMENTS ===

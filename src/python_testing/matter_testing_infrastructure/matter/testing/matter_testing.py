@@ -244,9 +244,9 @@ class MatterBaseTest(base_test.BaseTestClass):
              custom teardown code.
 
         """
-        if len(self.problems) > 0:
+        if len(getattr(self, 'problems', [])) > 0:
             # Attempt to dump device attribute data for debugging when problems are found during Confirmation Tests
-            if self.matter_test_config.debug:
+            if getattr(self, 'matter_test_config', None) is not None and self.matter_test_config.debug:
                 self._dump_device_attributes_on_failure()
 
             LOGGER.info("###########################################################")
@@ -256,7 +256,7 @@ class MatterBaseTest(base_test.BaseTestClass):
                 LOGGER.info(str(problem))
             LOGGER.info("###########################################################")
 
-        if self.subscription_controller is not None:
+        if getattr(self, 'subscription_controller', None) is not None:
             try:
                 self.subscription_controller.Shutdown()
             except Exception as e:
@@ -473,8 +473,9 @@ class MatterBaseTest(base_test.BaseTestClass):
         Test authors that implement this method should ensure super().teardown_test() is called
         after any custom teardown code.
         """
-        if not self.matter_test_config.no_wildcard_subscription:
-            if self.wildcard_subscription_handler is not None:
+        _config = getattr(self, 'matter_test_config', None)
+        if _config is None or not _config.no_wildcard_subscription:
+            if getattr(self, 'wildcard_subscription_handler', None) is not None:
                 try:
                     self.wildcard_subscription_handler.shutdown()
                 except Exception as e:
@@ -485,7 +486,7 @@ class MatterBaseTest(base_test.BaseTestClass):
             # Restore ACL to the snapshot taken before the subscription controller entry was
             # added.  Runs unconditionally so the DUT is always left in the original state
             # regardless of what the test did to the ACL.
-            if self._pre_subscription_acl is not None:
+            if getattr(self, '_pre_subscription_acl', None) is not None:
                 async def _restore_acl():
                     try:
                         await self.default_controller.WriteAttribute(
