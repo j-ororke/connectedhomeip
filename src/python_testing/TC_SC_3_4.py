@@ -28,6 +28,7 @@
 #       --passcode 20202021
 #       --trace-to json:${TRACE_TEST_JSON}.json
 #       --trace-to perfetto:${TRACE_TEST_PERFETTO}.perfetto
+#       --no-wildcard-subscription
 #   run2:
 #     app: ${ALL_CLUSTERS_APP}
 #     factory-reset: false
@@ -37,6 +38,7 @@
 #       --storage-path admin_storage.json
 #       --trace-to json:${TRACE_TEST_JSON}.json
 #       --trace-to perfetto:${TRACE_TEST_PERFETTO}.perfetto
+#       --no-wildcard-subscription
 # === END CI TEST ARGUMENTS ===
 
 
