@@ -446,9 +446,14 @@ class MatterBaseTest(base_test.BaseTestClass):
         self.step_skipped = False
         self.failed = False
         if self.runner_hook and not self.is_commissioning:
-            # Start the background wildcard subscription unless the test has opted out
-            # via --no-wildcard-subscription (e.g. tests that directly manipulate the ACL).
-            if not self.matter_test_config.no_wildcard_subscription:
+            # Start the background wildcard subscription only for real device tests or cert tests
+            # (commissioning_method is set) and unless the test has opted out via
+            # --no-wildcard-subscription (e.g. tests that directly manipulate the ACL or tests that count the TH entries).
+            # Unit tests in test_testing/ run without --commissioning-method, so
+            # commissioning_method is None there — skipping avoids trying to connect
+            # to a non-existent DUT (which would hang ~30 s per test and blow the CI timeout of 60mins).
+            if (not self.matter_test_config.no_wildcard_subscription and
+                    self.matter_test_config.commissioning_method is not None):
                 self._start_wildcard_subscription()
             test_name = self.current_test_info.name
             steps = self.get_defined_test_steps(test_name)
