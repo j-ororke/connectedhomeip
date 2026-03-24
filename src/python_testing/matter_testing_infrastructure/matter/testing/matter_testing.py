@@ -253,8 +253,7 @@ class MatterBaseTest(base_test.BaseTestClass):
             head = ", ".join(repr(v) for v in value[:5])
             return f"[{head}, ...] (len={len(value)})"
         if key == "pics" and isinstance(value, dict):
-            lines = "\n".join(f"      {k}: {v}" for k, v in sorted(value.items()))
-            return f"({len(value)})\n{lines}"
+            return "Please request if needed"
         return repr(value)
 
     def _log_execution_parameters_summary(self):
