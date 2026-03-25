@@ -1194,13 +1194,13 @@ class MatterBaseTest(base_test.BaseTestClass):
         # without disrupting existing test logic or return values.
         # Skipped automatically for C/Q-quality attributes, missing subscriptions, or
         # when a non-specified controller/node is used.
-        if read_ok:
+        if read_ok and node_id == self.dut_node_id:
             self.verify_attribute_subscription_value(
                 attribute=attribute,
                 read_value=attr_ret,
                 endpoint_id=endpoint,
                 test_name=test_name,
-                assert_on_error=False,
+                assert_on_error=True,
             )
 
         return attr_ret
