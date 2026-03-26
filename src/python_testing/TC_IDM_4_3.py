@@ -35,8 +35,10 @@
 # === END CI TEST ARGUMENTS ===
 
 import asyncio
+from dataclasses import dataclass
 import logging
 import time
+from typing import Any
 
 from mobly import asserts
 
@@ -55,6 +57,16 @@ from matter.testing.runner import default_matter_test_main
 from matter.tlv import uint
 
 log = logging.getLogger(__name__)
+
+
+@dataclass
+class ChangedAttribute:
+    endpoint: int
+    cluster: Any
+    attribute: Any
+    old_value: Any
+    new_value: Any
+
 
 '''
 Category:
@@ -205,7 +217,7 @@ class TC_IDM_4_3(BasicCompositionTests):
             Number of attributes successfully changed and verified
         """
         changed_count = 0
-        changed_attributes = []
+        changed_attributes: list[ChangedAttribute] = []
 
         for endpoint_id, clusters in priming_data.items():
             for cluster_class, attributes in clusters.items():
@@ -306,13 +318,13 @@ class TC_IDM_4_3(BasicCompositionTests):
                             f"{test_step}: [{changed_count}] Changed {attribute.__name__} (0x{attribute_id:04X}) on endpoint {endpoint_id}, cluster 0x{cluster_id:04X}: {cached_val} -> {new_val}")
 
                         # Track this change for verification
-                        changed_attributes.append({
-                            'endpoint': endpoint_id,
-                            'cluster': cluster_class,
-                            'attribute': attribute,
-                            'old_value': cached_val,
-                            'new_value': new_val
-                        })
+                        changed_attributes.append(ChangedAttribute(
+                            endpoint=endpoint_id,
+                            cluster=cluster_class,
+                            attribute=attribute,
+                            old_value=cached_val,
+                            new_value=new_val
+                        ))
 
                     elif resp[0].Status == Status.UnsupportedAccess:
                         asserts.fail(f"{test_step}: Write to {attribute.__name__} returned UnsupportedAccess")
@@ -344,9 +356,9 @@ class TC_IDM_4_3(BasicCompositionTests):
         missing_reports = []
 
         for change in changed_attributes:
-            ep = change['endpoint']
-            cluster = change['cluster']
-            attr = change['attribute']
+            ep = change.endpoint
+            cluster = change.cluster
+            attr = change.attribute
 
             # Check if handler received a report for this attribute
             if handler.was_attribute_reported(ep, cluster, attr):
@@ -373,9 +385,9 @@ class TC_IDM_4_3(BasicCompositionTests):
         # Revert the attributes to their original values
         if changed_attributes:
             for change in changed_attributes:
-                ep = change['endpoint']
-                attr = change['attribute']
-                old_value = change['old_value']
+                ep = change.endpoint
+                attr = change.attribute
+                old_value = change.old_value
 
                 # We have an issue with the NumberOfRinses attribute, where we continuously get InvalidInState error.
                 if attr.__name__ != "NumberOfRinses":
