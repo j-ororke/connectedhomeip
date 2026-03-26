@@ -389,20 +389,18 @@ class TC_IDM_4_3(BasicCompositionTests):
                 attr = change.attribute
                 old_value = change.old_value
 
-                # We have an issue with the NumberOfRinses attribute, where we continuously get InvalidInState error.
-                if attr.__name__ != "NumberOfRinses":
-                    resp = await self.default_controller.WriteAttribute(
-                        nodeId=self.dut_node_id,
-                        attributes=[(ep, attr(old_value))]
-                    )
-                    if resp[0].Status == Status.Success:
-                        revert_success = True
-                        break
+                resp = await self.default_controller.WriteAttribute(
+                    nodeId=self.dut_node_id,
+                    attributes=[(ep, attr(old_value))]
+                )
+                if resp[0].Status == Status.Success:
+                    revert_success = True
+                    break
 
-                    asserts.assert_equal(
-                        revert_success, True,
-                        f"Failed to revert {attr.__name__} on endpoint {ep}: {resp[0].Status}"
-                    )
+                asserts.assert_equal(
+                    revert_success, True,
+                    f"Failed to revert {attr.__name__} on endpoint {ep}: {resp[0].Status}"
+                )
 
         return verified_count
 
