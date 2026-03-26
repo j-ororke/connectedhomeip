@@ -35,9 +35,9 @@
 # === END CI TEST ARGUMENTS ===
 
 import asyncio
-from dataclasses import dataclass
 import logging
 import time
+from dataclasses import dataclass
 from typing import Any
 
 from mobly import asserts
