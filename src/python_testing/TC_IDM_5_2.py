@@ -54,9 +54,6 @@ log = logging.getLogger(__name__)
 
 
 class TC_IDM_5_2(IDMBaseTest, BasicCompositionTests):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
     def steps_TC_IDM_5_2(self) -> list[TestStep]:
         return [
             TestStep(0, "Commissioning, already done", is_commissioning=True),
@@ -117,7 +114,9 @@ class TC_IDM_5_2(IDMBaseTest, BasicCompositionTests):
 
         # Step 3: TH sends a Timed Request Message (Timed Invoke Transaction) with timeout,
         # waits for status response, waits 5 seconds (timer expired), then sends Invoke Request
-        SPEC_VERSION_1_4 = 0x00010400
+        # BasicInformation.SpecificationVersion is encoded as 0xMMNN0000
+        # (e.g. Matter 1.4 -> 0x01040000, Matter 1.6 -> 0x01060000).
+        SPEC_VERSION_1_4 = 0x01040000
         self.step(3)
         spec_version = await self.read_single_attribute_check_success(endpoint=0, cluster=Clusters.BasicInformation, attribute=Clusters.BasicInformation.Attributes.SpecificationVersion)
         try:
