@@ -39,7 +39,7 @@
 #include <lib/support/CHIPMem.h>
 #include <lib/support/CHIPMemString.h>
 #include <lib/support/CodeUtils.h>
-#include <lib/support/ScopedBuffer.h>
+#include <lib/support/ScopedMemoryBuffer.h>
 #include <lib/support/TestGroupData.h>
 #include <platform/CHIPDeviceEvent.h>
 #include <platform/ConnectivityManager.h>
@@ -154,6 +154,8 @@
 #include <openthread-system.h>
 #include <openthread/instance.h>
 #endif
+
+#include <access/examples/GroupAuxiliaryAccessControlDelegate.h>
 
 using namespace chip;
 using namespace chip::ArgParser;
@@ -982,6 +984,11 @@ void ChipLinuxAppMainLoop(chip::ServerInitParams & initParams, AppMainLoopImplem
     {
         initParams.advertiseCommissionableIfNoFabrics = false;
     }
+
+    // TODO: THIS MUST BE PROTECTED BEHIND MACRO, SEE PR #43677
+    static chip::Access::Examples::GroupAuxiliaryAccessControlDelegate groupAuxDelegate(initParams.groupDataProvider,
+                                                                                        &Server::GetInstance().GetFabricTable());
+    initParams.groupAuxiliaryAccessControlDelegate = &groupAuxDelegate;
 
     // Set DAC provider before server init because Operational Credentials may snapshot
     // the provider during cluster construction.
