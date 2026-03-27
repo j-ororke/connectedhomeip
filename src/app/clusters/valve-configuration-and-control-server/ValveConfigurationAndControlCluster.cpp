@@ -167,9 +167,11 @@ DataModel::ActionReturnStatus ValveConfigurationAndControlCluster::WriteImpl(con
 
         mDefaultOpenDuration = value;
 
-        // Persist (same style as DefaultOpenLevel block)
-        return mContext->attributeStorage.WriteValue(
-            request.path, { reinterpret_cast<const uint8_t *>(&mDefaultOpenDuration), sizeof(mDefaultOpenDuration) });
+        // Persist using AttributePersistence nullable storage representation.
+        NumericAttributeTraits<uint32_t>::StorageType storageValue;
+        NullableToStorage(mDefaultOpenDuration, storageValue);
+        return mContext->attributeStorage.WriteValue(request.path,
+                                                     { reinterpret_cast<const uint8_t *>(&storageValue), sizeof(storageValue) });
     }
 
     if (request.path.mAttributeId == ValveConfigurationAndControl::Attributes::DefaultOpenLevel::Id)
