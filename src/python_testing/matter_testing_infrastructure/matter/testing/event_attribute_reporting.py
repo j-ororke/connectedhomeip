@@ -32,6 +32,7 @@ import logging
 import queue
 import threading
 import time
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Iterable, Optional
 
@@ -43,6 +44,20 @@ from matter.interaction_model import Status
 from matter.testing.matter_testing import AttributeMatcher, AttributeValue
 
 LOGGER = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class WildcardAttributeReport:
+    endpoint: int
+    cluster: Any
+    attribute: Any
+    value: Any
+
+
+@dataclass(frozen=True)
+class WildcardAttributeReportSnapshot:
+    value: Any
+    timestamp: datetime
 
 
 class EventSubscriptionHandler:
@@ -554,7 +569,7 @@ class WildcardAttributeSubscriptionHandler:
 
     Attributes:
         _subscription: The active subscription transaction object.
-        _q: Queue storing tuples of (endpoint_id, cluster_type, attribute_type, value) for received updates.
+        _q: Queue storing WildcardAttributeReport objects for received updates.
         _attribute_reports: Dictionary tracking all reports by (endpoint, cluster, attribute) tuple.
         _lock: Threading lock for thread-safe access to internal data structures.
     """
@@ -563,7 +578,7 @@ class WildcardAttributeSubscriptionHandler:
         """Initialize the wildcard subscription handler."""
         self._subscription = None
         self._q = queue.Queue()
-        self._attribute_reports: dict[tuple, list[Any]] = {}
+        self._attribute_reports: dict[tuple, list[WildcardAttributeReportSnapshot]] = {}
         self._lock = threading.Lock()
 
     def __call__(self, path: TypedAttributePath, transaction: SubscriptionTransaction):
@@ -582,21 +597,21 @@ class WildcardAttributeSubscriptionHandler:
         report_key = (path.Path.EndpointId, path.ClusterType, path.AttributeType)
 
         # Queue the report for sequential processing
-        self._q.put({
-            'endpoint': path.Path.EndpointId,
-            'cluster': path.ClusterType,
-            'attribute': path.AttributeType,
-            'value': data
-        })
+        self._q.put(WildcardAttributeReport(
+            endpoint=path.Path.EndpointId,
+            cluster=path.ClusterType,
+            attribute=path.AttributeType,
+            value=data
+        ))
 
         # Track in history with thread safety
         with self._lock:
             if report_key not in self._attribute_reports:
                 self._attribute_reports[report_key] = []
-            self._attribute_reports[report_key].append({
-                'value': data,
-                'timestamp': datetime.now(timezone.utc)
-            })
+            self._attribute_reports[report_key].append(WildcardAttributeReportSnapshot(
+                value=data,
+                timestamp=datetime.now(timezone.utc)
+            ))
 
     async def start(self, dev_ctrl, node_id: int, attributes: list,
                     fabric_filtered: bool = False,
