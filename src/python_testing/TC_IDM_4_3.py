@@ -135,6 +135,8 @@ class TC_IDM_4_3(BasicCompositionTests):
     def get_mrp_retransmission_timeout_sec(self, dev_ctrl) -> float:
         """Compute worst-case MRP retransmission time (s) using negotiated intervals; fall back conservatively."""
         session_params = dev_ctrl.GetRemoteSessionParameters(self.dut_node_id)
+        # Default local MRP intervals from ReliableMessageProtocolConfig.h for Linux controller builds:
+        # idle=500ms, active=300ms.
         negotiated_idle_interval_ms = session_params.sessionIdleInterval if session_params else 500
         negotiated_active_interval_ms = session_params.sessionActiveInterval if session_params else 300
 
