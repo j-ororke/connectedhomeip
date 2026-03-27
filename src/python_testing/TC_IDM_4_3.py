@@ -135,8 +135,8 @@ class TC_IDM_4_3(BasicCompositionTests):
     def get_mrp_retransmission_timeout_sec(self, dev_ctrl) -> float:
         """Compute worst-case MRP retransmission time (s) using negotiated intervals; fall back conservatively."""
         session_params = dev_ctrl.GetRemoteSessionParameters(self.dut_node_id)
-        negotiated_idle_interval_ms = session_params.sessionIdleInterval if session_params else 0
-        negotiated_active_interval_ms = session_params.sessionActiveInterval if session_params else 0
+        negotiated_idle_interval_ms = session_params.sessionIdleInterval if session_params else 500
+        negotiated_active_interval_ms = session_params.sessionActiveInterval if session_params else 300
 
         # Defaults: 500ms idle (IP) / 2000ms (Thread) / 4000ms (fallback).
         base_interval_ms = max(negotiated_idle_interval_ms, negotiated_active_interval_ms, 4000)
