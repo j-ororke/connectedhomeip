@@ -835,7 +835,6 @@ class MatterBaseTest(base_test.BaseTestClass):
         if normalized_key == "PICS_SDK_CI_ONLY" and pics_enabled:
             test_name = getattr(self.current_test_info, "name", "<unknown-test>")
             message = f"[PICS] PICS_SDK_CI_ONLY is enabled (True) for test '{test_name}'."
-            # Use print so this is visible in cert logs even when normal logging is quiet.
             LOGGER.info(message)
 
         return pics_enabled
