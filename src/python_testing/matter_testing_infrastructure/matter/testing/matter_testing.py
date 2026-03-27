@@ -294,6 +294,10 @@ class MatterBaseTest(base_test.BaseTestClass):
             for key in sorted(named_args.keys()):
                 LOGGER.info("  - %s: %s", key, self._format_summary_value(key, named_args[key]))
 
+        if self.is_pics_sdk_ci_only:
+            test_name = self.__class__.__name__
+            LOGGER.info(f"===== PICS_SDK_CI_ONLY is enabled (True) for test '{test_name}'.")
+
         LOGGER.info("===== EXECUTION FLAGS SUMMARY END =====")
 
     def _dump_device_attributes_on_failure(self):
@@ -829,15 +833,7 @@ class MatterBaseTest(base_test.BaseTestClass):
         Returns:
             True if the PICS key is enabled, False otherwise.
         """
-        normalized_key = pics_key.strip()
-        pics_enabled = self.matter_test_config.pics.get(normalized_key, False)
-
-        if normalized_key == "PICS_SDK_CI_ONLY" and pics_enabled:
-            test_name = getattr(self.current_test_info, "name", "<unknown-test>")
-            message = f"[PICS] PICS_SDK_CI_ONLY is enabled (True) for test '{test_name}'."
-            LOGGER.info(message)
-
-        return pics_enabled
+        return self.matter_test_config.pics.get(pics_key.strip(), False)
 
     def pics_guard(self, pics_condition: bool):
         """Checks a condition and if False marks the test step as skipped and
