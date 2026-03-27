@@ -829,7 +829,16 @@ class MatterBaseTest(base_test.BaseTestClass):
         Returns:
             True if the PICS key is enabled, False otherwise.
         """
-        return self.matter_test_config.pics.get(pics_key.strip(), False)
+        normalized_key = pics_key.strip()
+        pics_enabled = self.matter_test_config.pics.get(normalized_key, False)
+
+        if normalized_key == "PICS_SDK_CI_ONLY" and pics_enabled:
+            test_name = getattr(self.current_test_info, "name", "<unknown-test>")
+            message = f"[PICS] PICS_SDK_CI_ONLY is enabled (True) for test '{test_name}'."
+            # Use print so this is visible in cert logs even when normal logging is quiet.
+            LOGGER.info(message)
+
+        return pics_enabled
 
     def pics_guard(self, pics_condition: bool):
         """Checks a condition and if False marks the test step as skipped and
