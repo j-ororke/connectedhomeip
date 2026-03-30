@@ -46,17 +46,17 @@ class TC_BRBINFO_2_1(BasicInformationAttributesVerificationBase):
         return "[TC-BRBINFO-2.1] Attributes [DUT-Server]"
 
     def steps_TC_BRBINFO_2_1(self) -> list[TestStep]:
-        # BRBINFO doesn't have DataModelRevision, Location, LocalConfigDisabled, CapabilityMinima, SpecificationVersion, MaxPathsPerInvoke
-        # and ConfigurationVersion (29) as mandatory attributes
-        # so skip steps 1, 7, 17, 20, 22, 23
-        return self.steps()
+        # BRBINFO test plan omits Basic Information attributes not present on Bridged Device Basic Information:
+        # DataModelRevision (1), Location (7), LocalConfigDisabled (17), CapabilityMinima (20),
+        # SpecificationVersion (22), MaxPathsPerInvoke (23). Steps are renumbered 0..N to match implementation.
+        return self.steps_brbinfo_2_1()
 
     def pics_TC_BRBINFO_2_1(self) -> list[str]:
         return self.pics('BRBINFO')
 
     @async_test_body
     async def test_TC_BRBINFO_2_1(self):
-        await self.implementation(Clusters.BridgedDeviceBasicInformation)
+        await self.implementation(Clusters.BridgedDeviceBasicInformation, brbinfo=True)
 
 
 if __name__ == "__main__":
