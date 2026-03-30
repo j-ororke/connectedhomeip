@@ -20,17 +20,12 @@ Shared helpers for Basic / Bridged Basic Information python tests.
 """
 
 from __future__ import annotations
-
 from collections.abc import Sequence
-from typing import Dict
-
-from matter.testing.matter_testing import TestStep
 from matter.testing.runner import TestStep
 
 
-def plan_step_indices(base_step_order: Sequence[int]) -> Dict[int, int]:
-    """Build a mapping from base step number -> harness step index (0..n-1).
 def plan_step_indices(base_step_order: Sequence[int]) -> dict[int, int]:
+    """
     This is used when we are working with a subset of steps but still want to reference
     them using the original test plan numbering.
 
