@@ -21,14 +21,13 @@ from typing import Optional
 import pycountry
 import validators
 from mobly import asserts
+from support_modules.binfo_support import plan_step_indices, subset_renumbered_test_steps
 
 from matter.clusters.ClusterObjects import Cluster
 from matter.testing.conformance import ConformanceException
 from matter.testing.decorators import _has_attribute
 from matter.testing.matter_testing import MatterBaseTest, TestStep
 from matter.testing.spec_parsing import dm_from_spec_version
-
-from support_modules.binfo_support import plan_step_indices, subset_renumbered_test_steps
 
 
 class BasicInformationAttributesVerificationBase(MatterBaseTest):
