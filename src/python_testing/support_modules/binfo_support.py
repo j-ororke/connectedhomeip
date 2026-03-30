@@ -20,7 +20,9 @@ Shared helpers for Basic / Bridged Basic Information python tests.
 """
 
 from __future__ import annotations
+
 from collections.abc import Sequence
+
 from matter.testing.runner import TestStep
 
 
