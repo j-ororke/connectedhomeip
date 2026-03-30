@@ -15,10 +15,8 @@
 #    limitations under the License.
 #
 
-"""Shared helpers for Basic / Bridged Basic Information python tests.
-
-If these prove useful beyond ``support_modules``, they can move into
-``matter.testing`` after maintainer review.
+"""
+Shared helpers for Basic / Bridged Basic Information python tests.
 """
 
 from __future__ import annotations
