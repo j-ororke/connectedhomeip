@@ -27,6 +27,8 @@ from typing import Dict
 from matter.testing.runner import TestStep
 
 from matter.testing.matter_testing import TestStep
+
+
 def plan_step_indices(base_step_order: Sequence[int]) -> Dict[int, int]:
     """Build a mapping from base step number -> harness step index (0..n-1).
 def plan_step_indices(base_step_order: Sequence[int]) -> dict[int, int]:
