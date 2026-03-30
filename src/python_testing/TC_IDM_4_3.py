@@ -556,7 +556,6 @@ class TC_IDM_4_3(BasicCompositionTests):
         )
 
         first_sub_id = sub_step3_first.subscriptionId
-        _, original_max_interval_sec = sub_step3_first.GetReportingIntervalsSeconds()
 
         # Second subscription with different parameters (this should replace the first)
         attr_handler_step3_second = AttributeSubscriptionHandler(
@@ -574,6 +573,7 @@ class TC_IDM_4_3(BasicCompositionTests):
         )
 
         second_sub_id = sub_step3_second.subscriptionId
+        _, second_max_interval_sec = sub_step3_second.GetReportingIntervalsSeconds()
 
         # Verify different subscription IDs
         asserts.assert_not_equal(first_sub_id, second_sub_id, "Subscription IDs should be different")
@@ -588,12 +588,9 @@ class TC_IDM_4_3(BasicCompositionTests):
             [(self.root_node_endpoint, node_label_attr(value=new_label))]
         )
 
-        # Wait for report (should be on second subscription)
-        await asyncio.sleep(original_max_interval_sec + 1)
-
-        # Verify we got a report on second subscription
-        asserts.assert_greater(attr_handler_step3_second.attribute_queue.qsize(), 0,
-                               "Should receive report on second subscription")
+        # Wait directly for a report from the active subscription.
+        step3_timeout_sec = second_max_interval_sec + mrp_timeout_sec + 1
+        attr_handler_step3_second.wait_for_attribute_report(timeout_sec=step3_timeout_sec)
 
         # Clean up both subscriptions from step 3
         attr_handler_step3_first.cancel()
