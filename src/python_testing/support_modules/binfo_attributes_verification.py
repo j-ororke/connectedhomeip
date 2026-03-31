@@ -21,7 +21,7 @@ from typing import Optional
 import pycountry
 import validators
 from mobly import asserts
-from support_modules.binfo_support import plan_step_indices, subset_renumbered_test_steps
+from support_modules.binfo_support import BINFOBaseTest
 
 from matter.clusters.ClusterObjects import Cluster
 from matter.testing.conformance import ConformanceException
@@ -30,7 +30,7 @@ from matter.testing.matter_testing import MatterBaseTest, TestStep
 from matter.testing.spec_parsing import dm_from_spec_version
 
 
-class BasicInformationAttributesVerificationBase(MatterBaseTest):
+class BasicInformationAttributesVerificationBase(BINFOBaseTest):
     # TC-BRBINFO-2.1: same checks as BINFO but omit bases not on Bridged Device Basic Information.
     _BRBINFO_2_1_BASE_STEP_ORDER = (
         0, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 14, 15, 16,
@@ -38,7 +38,7 @@ class BasicInformationAttributesVerificationBase(MatterBaseTest):
     )
 
     def steps_brbinfo_2_1(self) -> list[TestStep]:
-        return subset_renumbered_test_steps(self.steps(), self._BRBINFO_2_1_BASE_STEP_ORDER)
+        return self.subset_renumbered_test_steps(self.steps(), self._BRBINFO_2_1_BASE_STEP_ORDER)
 
     def steps(self) -> list[TestStep]:
         return [
@@ -96,7 +96,7 @@ class BasicInformationAttributesVerificationBase(MatterBaseTest):
 
     async def implementation(self, cluster: Cluster, *, brbinfo: bool = False):
         order = self._BRBINFO_2_1_BASE_STEP_ORDER if brbinfo else tuple(range(30))
-        plan_step = plan_step_indices(order)
+        plan_step = self.plan_step_indices(order)
 
         self.endpoint = self.get_endpoint()
         serial_number: Optional[str] = None

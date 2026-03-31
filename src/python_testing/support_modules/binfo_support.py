@@ -23,38 +23,41 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
+from matter.testing.matter_testing import MatterBaseTest
 from matter.testing.runner import TestStep
 
+class BINFOBaseTest(MatterBaseTest):
+    """Base test class for BINFO tests with shared functionality."""
 
-def plan_step_indices(base_step_order: Sequence[int]) -> dict[int, int]:
-    """
-    This is used when we are working with a subset of steps but still want to reference
-    them using the original test plan numbering.
+    def plan_step_indices(self, base_step_order: Sequence[int]) -> dict[int, int]:
+        """
+        This is used when we are working with a subset of steps but still want to reference
+        them using the original test plan numbering.
 
-    Note:
-        - Only steps included in base_step_order will be present in the map.
-        - For optional steps, use:
-              if base in plan_step: self.step(plan_step[base])
-    """
-    return {base: i for i, base in enumerate(base_step_order)}
+        Note:
+            - Only steps included in base_step_order will be present in the map.
+            - For optional steps, use:
+                    if base in plan_step: self.step(plan_step[base])
+        """
+        return {base: i for i, base in enumerate(base_step_order)}
 
 
-def subset_renumbered_test_steps(base_steps: Sequence[TestStep], base_step_order: Sequence[int]) -> list[TestStep]:
-    """Create a subset of TestStep objects with renumbered (0..n-1) test_plan_number values.
+    def subset_renumbered_test_steps(self, base_steps: Sequence[TestStep], base_step_order: Sequence[int]) -> list[TestStep]:
+        """Create a subset of TestStep objects with renumbered (0..n-1) test_plan_number values.
 
-    This keeps the original step content (description, expectation, etc.) but aligns the
-    numbering with what the harness expects after filtering.
+        This keeps the original step content (description, expectation, etc.) but aligns the
+        numbering with what the harness expects after filtering.
 
-    Assumes all base_step_order entries exist in base_steps.
-    """
-    by_num = {s.test_plan_number: s for s in base_steps}
-    out: list[TestStep] = []
-    for i, b in enumerate(base_step_order):
-        s = by_num[b]
-        out.append(TestStep(
-            test_plan_number=i,
-            description=s.description,
-            expectation=s.expectation,
-            is_commissioning=s.is_commissioning,
-        ))
-    return out
+        Assumes all base_step_order entries exist in base_steps.
+        """
+        by_num = {s.test_plan_number: s for s in base_steps}
+        out: list[TestStep] = []
+        for i, b in enumerate(base_step_order):
+            s = by_num[b]
+            out.append(TestStep(
+                test_plan_number=i,
+                description=s.description,
+                expectation=s.expectation,
+                is_commissioning=s.is_commissioning,
+            ))
+        return out
