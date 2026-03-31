@@ -26,6 +26,7 @@ from collections.abc import Sequence
 from matter.testing.matter_testing import MatterBaseTest
 from matter.testing.runner import TestStep
 
+
 class BINFOBaseTest(MatterBaseTest):
     """Base test class for BINFO tests with shared functionality."""
 
@@ -40,7 +41,6 @@ class BINFOBaseTest(MatterBaseTest):
                     if base in plan_step: self.step(plan_step[base])
         """
         return {base: i for i, base in enumerate(base_step_order)}
-
 
     def subset_renumbered_test_steps(self, base_steps: Sequence[TestStep], base_step_order: Sequence[int]) -> list[TestStep]:
         """Create a subset of TestStep objects with renumbered (0..n-1) test_plan_number values.
