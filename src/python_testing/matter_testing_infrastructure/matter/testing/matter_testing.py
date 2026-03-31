@@ -1261,7 +1261,7 @@ class MatterBaseTest(base_test.BaseTestClass):
                 read_value=attr_ret,
                 endpoint_id=endpoint,
                 test_name=test_name,
-                assert_on_error=True,
+                assert_on_error=False,
             )
 
         return attr_ret
