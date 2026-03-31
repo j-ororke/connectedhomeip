@@ -37,7 +37,7 @@ from support_modules.binfo_attributes_verification import BasicInformationAttrib
 
 import matter.clusters as Clusters
 from matter.testing.decorators import async_test_body
-from matter.testing.runner import default_matter_test_main, TestStep
+from matter.testing.runner import TestStep, default_matter_test_main
 
 
 class TC_BINFO_2_1(BasicInformationAttributesVerificationBase):
