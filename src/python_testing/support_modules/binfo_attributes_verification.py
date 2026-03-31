@@ -26,7 +26,7 @@ from support_modules.binfo_support import BINFOBaseTest
 from matter.clusters.ClusterObjects import Cluster
 from matter.testing.conformance import ConformanceException
 from matter.testing.decorators import _has_attribute
-from matter.testing.matter_testing import MatterBaseTest, TestStep
+from matter.testing.matter_testing import TestStep
 from matter.testing.spec_parsing import dm_from_spec_version
 
 
