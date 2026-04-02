@@ -394,6 +394,31 @@ class MatterBaseTest(base_test.BaseTestClass):
             self._pre_subscription_acl = None
             self.wildcard_subscription_handler = None
 
+    def get_subscription_acl_entry(self):
+        """Return the ACL entry for the subscription controller, or None.
+
+        Tests that write ACLs can include this entry in their ACL list to maintain
+        subscription coverage during the test.  Without it, the subscription controller
+        loses access and subscription reports are denied by the DUT.
+
+        Example usage in a test::
+
+            my_acl = [primary_entry, other_entry]
+            sub_entry = self.get_subscription_acl_entry()
+            if sub_entry is not None:
+                my_acl.append(sub_entry)
+            await self.default_controller.WriteAttribute(...)
+        """
+        if getattr(self, 'subscription_controller', None) is None:
+            return None
+        sub_node_id = self.matter_test_config.controller_node_id + 123456
+        return Clusters.AccessControl.Structs.AccessControlEntryStruct(
+            privilege=Clusters.AccessControl.Enums.AccessControlEntryPrivilegeEnum.kAdminister,
+            authMode=Clusters.AccessControl.Enums.AccessControlEntryAuthModeEnum.kCase,
+            subjects=[sub_node_id],
+            targets=NullValue,
+        )
+
     def _format_summary_value(self, key: str, value: Any) -> str:
         """Format values for end-of-test summary logs."""
         if isinstance(value, bytes):
@@ -1256,7 +1281,7 @@ class MatterBaseTest(base_test.BaseTestClass):
         # Skipped automatically for C/Q-quality attributes, missing subscriptions, or
         # when a non-specified controller/node is used.
         if read_ok and node_id == self.dut_node_id:
-            self.verify_attribute_subscription_value(
+            await self.verify_attribute_subscription_value(
                 attribute=attribute,
                 read_value=attr_ret,
                 endpoint_id=endpoint,
@@ -1266,7 +1291,7 @@ class MatterBaseTest(base_test.BaseTestClass):
 
         return attr_ret
 
-    def verify_attribute_subscription_value(
+    async def verify_attribute_subscription_value(
             self,
             attribute: Type[ClusterObjects.ClusterAttributeDescriptor],
             read_value: Any,
@@ -1282,6 +1307,11 @@ class MatterBaseTest(base_test.BaseTestClass):
         Attributes with Changes Omitted (C) or Quieter Reporting (Q) spec quality flags are
         skipped automatically — they are not required to reflect every change in subscription
         reports, so no comparison is meaningful for them.
+
+        When a persistent mismatch is detected (after retries), this method reads the DUT's
+        current ACL to check whether the subscription controller's entry was removed by
+        the test.  If so, the mismatch is an ACL conflict (not a DUT bug) and is logged as
+        a warning rather than flagged as an error.
 
         Args:
             attribute:      Attribute descriptor class (e.g. Clusters.OnOff.Attributes.OnOff).
@@ -1325,11 +1355,34 @@ class MatterBaseTest(base_test.BaseTestClass):
             return False
 
         if cached_value != read_value:
+            LOGGER.info(
+                f"[verify_subscription] Mismatch on first check for {attribute.__name__} on endpoint {endpoint_id}: "
+                f"read={read_value!r}, cache={cached_value!r}. Retrying after delay...")
+            import time
+            for attempt in range(3):
+                time.sleep(1)
+                cached_value = self.wildcard_subscription_handler.get_latest_value(endpoint_id, cluster_id, attr_id)
+                if cached_value == read_value:
+                    LOGGER.info(
+                        f"[verify_subscription] {attribute.__name__} on endpoint {endpoint_id} matched after "
+                        f"{attempt + 1}s retry: {read_value}")
+                    return True
+                LOGGER.info(
+                    f"[verify_subscription] Retry {attempt + 1}/3: still mismatched, cache={cached_value!r}")
+
+            if await self._is_subscription_acl_removed():
+                LOGGER.warning(
+                    f"[verify_subscription] Subscription controller ACL entry removed by test — "
+                    f"skipping validation for {attribute.__name__} on endpoint {endpoint_id} "
+                    f"(read={read_value!r}, cache={cached_value!r})")
+                return True
+
             problem = (
                 f"Subscription cache mismatch for {attribute.__name__} "
                 f"(cluster 0x{cluster_id:04X}, attr 0x{attr_id:04X}) "
                 f"on endpoint {endpoint_id}: "
-                f"read returned {read_value!r}, subscription cache has {cached_value!r}"
+                f"read returned {read_value!r}, subscription cache has {cached_value!r} "
+                f"(after 3s retry)"
             )
             if assert_on_error:
                 asserts.fail(problem)
@@ -1340,6 +1393,29 @@ class MatterBaseTest(base_test.BaseTestClass):
         LOGGER.info(
             f"[verify_subscription] {attribute.__name__} on endpoint {endpoint_id} matches read value: {read_value}")
         return True
+
+    async def _is_subscription_acl_removed(self) -> bool:
+        """Check whether the subscription controller's ACL entry has been removed from the DUT.
+
+        Returns True if the subscription controller no longer has an ACL entry,
+        meaning subscription reports would be denied by the DUT's access control.
+        """
+        if self.subscription_controller is None:
+            return False
+        sub_node_id = self.matter_test_config.controller_node_id + 123456
+        try:
+            acl_result = await self.default_controller.ReadAttribute(
+                nodeId=self.dut_node_id,
+                attributes=[(0, Clusters.AccessControl.Attributes.Acl)],
+            )
+            current_acl = acl_result[0][Clusters.AccessControl][Clusters.AccessControl.Attributes.Acl]
+            for entry in current_acl:
+                if entry.subjects and sub_node_id in entry.subjects:
+                    return False
+            return True
+        except Exception as e:
+            LOGGER.warning("[verify_subscription] Could not read ACL to check for conflict: %s", e)
+            return False
 
     async def read_single_attribute_expect_error(
             self, cluster: ClusterObjects.Cluster, attribute: Type[ClusterObjects.ClusterAttributeDescriptor],
