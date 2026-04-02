@@ -1359,7 +1359,7 @@ class MatterBaseTest(base_test.BaseTestClass):
                 f"[verify_subscription] Mismatch on first check for {attribute.__name__} on endpoint {endpoint_id}: "
                 f"read={read_value!r}, cache={cached_value!r}. Retrying after delay...")
             for attempt in range(3):
-                time.sleep(1)
+                await asyncio.sleep(1)
                 cached_value = self.wildcard_subscription_handler.get_latest_value(endpoint_id, cluster_id, attr_id)
                 if cached_value == read_value:
                     LOGGER.info(
