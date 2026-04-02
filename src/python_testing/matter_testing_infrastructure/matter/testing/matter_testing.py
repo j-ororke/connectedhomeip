@@ -1286,7 +1286,7 @@ class MatterBaseTest(base_test.BaseTestClass):
                 read_value=attr_ret,
                 endpoint_id=endpoint,
                 test_name=test_name,
-                assert_on_error=False,
+                assert_on_error=True,
             )
 
         return attr_ret
@@ -1358,7 +1358,6 @@ class MatterBaseTest(base_test.BaseTestClass):
             LOGGER.info(
                 f"[verify_subscription] Mismatch on first check for {attribute.__name__} on endpoint {endpoint_id}: "
                 f"read={read_value!r}, cache={cached_value!r}. Retrying after delay...")
-            import time
             for attempt in range(3):
                 time.sleep(1)
                 cached_value = self.wildcard_subscription_handler.get_latest_value(endpoint_id, cluster_id, attr_id)
@@ -1409,10 +1408,7 @@ class MatterBaseTest(base_test.BaseTestClass):
                 attributes=[(0, Clusters.AccessControl.Attributes.Acl)],
             )
             current_acl = acl_result[0][Clusters.AccessControl][Clusters.AccessControl.Attributes.Acl]
-            for entry in current_acl:
-                if entry.subjects and sub_node_id in entry.subjects:
-                    return False
-            return True
+            return all(not (entry.subjects and sub_node_id in entry.subjects) for entry in current_acl)
         except Exception as e:
             LOGGER.warning("[verify_subscription] Could not read ACL to check for conflict: %s", e)
             return False
