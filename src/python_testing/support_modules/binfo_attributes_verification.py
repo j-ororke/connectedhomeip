@@ -102,6 +102,7 @@ class BasicInformationAttributesVerificationBase(BINFOBaseTest):
         serial_number: Optional[str] = None
         self.step(plan_step[0])  # commissioning already done
 
+        # Step 1: DataModelRevision
         if 1 in plan_step:
             self.step(plan_step[1])
             if hasattr(cluster.Attributes, 'DataModelRevision') and await self.attribute_guard(endpoint=self.endpoint, attribute=cluster.Attributes.DataModelRevision):
