@@ -154,6 +154,7 @@ blocklist
 blockquote
 bluetoothd
 bluez
+Bonjour
 BOOL
 booleans
 BooleanState
@@ -197,6 +198,7 @@ cbd
 CBOR
 Ccache
 ccf
+CCM
 CCMP
 CCS
 CCSTUDIO
@@ -204,6 +206,7 @@ CCXML
 CDEEDC
 CDVersionNumber
 ced
+centric
 cfg
 CFLAGS
 cgit
@@ -283,6 +286,8 @@ commissionables
 commissionee
 CommissioningFlow
 commondatastorage
+Compat
+compat
 CONF
 CONFIG
 ConfigDescription
@@ -418,6 +423,7 @@ DeviceTemperatureConfiguration
 DevKitC
 DevKitM
 devtype
+DEX
 df
 dfe
 DFILE
@@ -467,6 +473,7 @@ downcasting
 DownloadProtocolEnum
 Doxygen
 dpkg
+drawables
 dropdown
 dryrun
 DS
@@ -598,6 +605,7 @@ fullclean
 fuzzer
 fuzzers
 fuzztest
+fvisibility
 FW
 Fxx
 gbl
@@ -694,6 +702,7 @@ ICA
 ICAC
 ICD
 ICDs
+ICF
 iCloud
 ICMP
 idempotency
@@ -729,6 +738,7 @@ ini
 init
 InitArgs
 inlined
+inlining
 InputLoop
 installDebug
 instantiation
@@ -774,6 +784,7 @@ jpg
 jre
 js
 json
+jsoncpp
 JTAG
 Jupyter
 jupyterlab
@@ -823,6 +834,7 @@ libglib
 libical
 libncurses
 libreadline
+libs
 libsdl
 libshell
 libssl
@@ -853,6 +865,7 @@ LPC
 LSP
 LTE
 LTS
+LTO
 LwIP
 LwIP's
 LZMA
@@ -925,6 +938,7 @@ middleware
 MIMXRT
 minApplicableSoftwareVersion
 Minicom
+minifyEnabled
 MinInterval
 MinIntervalFloorSeconds
 minLength
@@ -1004,6 +1018,7 @@ nrfconnect
 nrfdks
 nrfutil
 nrfxlib
+NSD
 NTAG
 NTP
 nullable
@@ -1255,6 +1270,8 @@ RGB
 riscv
 rloc
 rmw
+rnd
+Robolectric
 rodata
 Rollershade
 rootfs
@@ -1380,6 +1397,7 @@ StartScan
 startsWith
 StatusCode
 stderr
+stdlib
 stdout
 sterm
 stlink
@@ -1636,6 +1654,7 @@ xcd
 Xcode
 xcodebuild
 xcodeproj
+Xcode's
 xcworkspace
 xd
 xds
@@ -1686,3 +1705,4 @@ zigbeealliance
 zigbeethread
 zsdk
 TBR
+ZXing
