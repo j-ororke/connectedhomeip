@@ -29,6 +29,12 @@ from matter.testing.decorators import _has_attribute
 from matter.testing.matter_testing import TestStep
 from matter.testing.spec_parsing import dm_from_spec_version
 
+# Basic Information cluster ClusterRevision at which CapabilityMinima includes extended
+# fields (e.g. read/subscribe paths, simultaneous invocations/writes) and applies 10_000
+# upper bounds on counters; below this revision the test allows legacy 65_535 caps on the
+# original two fields only (TC-BINFO / TC-BRBINFO 2.1 step 20).
+_CAPABILITY_MINIMA_EXTENDED_FIELDS_CLUSTER_REVISION = 6
+
 
 class BasicInformationAttributesVerificationBase(BINFOBaseTest):
     # TC-BRBINFO-2.1: same checks as BINFO but omit bases not on Bridged Device Basic Information.
@@ -95,8 +101,15 @@ class BasicInformationAttributesVerificationBase(BINFOBaseTest):
         return [f"{cluster_pics}.S"]
 
     async def implementation(self, cluster: Cluster, *, brbinfo: bool = False):
-        order = self._BRBINFO_2_1_BASE_STEP_ORDER if brbinfo else tuple(range(30))
+        full_step_order = tuple(range(len(self.steps())))
+        order = self._BRBINFO_2_1_BASE_STEP_ORDER if brbinfo else full_step_order
         plan_step = self.plan_step_indices(order)
+
+        # attribute_guard: DUT lists the attribute on this endpoint (wildcard / AttributeList).
+        # hasattr(cluster.Attributes, ...): the generated cluster class defines that descriptor.
+        #   BasicInformation vs BridgedDeviceBasicInformation omit some attributes from the type
+        #   entirely; without hasattr, cluster.Attributes.X raises before attribute_guard runs.
+        # Steps that only use attribute_guard refer to attributes present on every cluster used here.
 
         self.endpoint = self.get_endpoint()
         serial_number: Optional[str] = None
@@ -312,22 +325,23 @@ class BasicInformationAttributesVerificationBase(BINFOBaseTest):
                 asserts.assert_greater_equal(capability_minima.subscriptionsPerFabric, 3,
                                              "SubscriptionsPerFabric should be greater than or equal to 3")
 
-                # New constraints: when ClusterRevision >= 6, enforce upper bound of 10000 on all CapabilityMinima fields.
-                if cluster_revision >= 6:
+                # New constraints at extended CapabilityMinima layout (ClusterRevision threshold above).
+                if cluster_revision >= _CAPABILITY_MINIMA_EXTENDED_FIELDS_CLUSTER_REVISION:
                     # Original fields (always present)
                     asserts.assert_less_equal(capability_minima.caseSessionsPerFabric, 10000,
                                               "CaseSessionsPerFabric should be less than or equal to 10000")
                     asserts.assert_less_equal(capability_minima.subscriptionsPerFabric, 10000,
                                               "SubscriptionsPerFabric should be less than or equal to 10000")
-                    # Additional fields are expected to be present at ClusterRevision >= 6.
+                    # Additional fields expected once the cluster exposes the extended CapabilityMinima shape.
+                    rev = _CAPABILITY_MINIMA_EXTENDED_FIELDS_CLUSTER_REVISION
                     asserts.assert_is_not_none(capability_minima.simultaneousInvocationsSupported,
-                                               "SimultaneousInvocationsSupported should be present when ClusterRevision >= 6")
+                                               f"SimultaneousInvocationsSupported should be present when ClusterRevision >= {rev}")
                     asserts.assert_is_not_none(capability_minima.simultaneousWritesSupported,
-                                               "SimultaneousWritesSupported should be present when ClusterRevision >= 6")
+                                               f"SimultaneousWritesSupported should be present when ClusterRevision >= {rev}")
                     asserts.assert_is_not_none(capability_minima.readPathsSupported,
-                                               "ReadPathsSupported should be present when ClusterRevision >= 6")
+                                               f"ReadPathsSupported should be present when ClusterRevision >= {rev}")
                     asserts.assert_is_not_none(capability_minima.subscribePathsSupported,
-                                               "SubscribePathsSupported should be present when ClusterRevision >= 6")
+                                               f"SubscribePathsSupported should be present when ClusterRevision >= {rev}")
 
                     asserts.assert_greater_equal(capability_minima.simultaneousInvocationsSupported, 1,
                                                  "SimultaneousInvocationsSupported should be greater than or equal to 1")
