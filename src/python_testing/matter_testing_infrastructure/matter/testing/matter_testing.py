@@ -301,12 +301,19 @@ class MatterBaseTest(base_test.BaseTestClass):
         )
 
     def _start_wildcard_subscription(self) -> None:
-        """Start a background wildcard subscription, omitting C/Q-quality attributes.
+        """Start a background wildcard attribute subscription on the DUT.
 
-        Creates a WildcardAttributeSubscriptionHandler pre-loaded with the C/Q exclusion
-        set built in setup_class, subscribes to all attributes on all endpoints of the DUT,
-        and caches the priming-read values so tests can query the current device state
-        without an extra round-trip read.
+        Subscribes to *all* attributes on all endpoints via a wildcard path.  The
+        subscription handler's callback silently drops reports for attributes that carry
+        Changes Omitted (C) or Quieter Reporting (Q) spec quality flags (using the
+        exclusion set built in ``setup_class``), so those never enter the cache.  All
+        other reports update a latest-value cache that ``verify_attribute_subscription_value``
+        compares against direct reads.
+
+        The subscription uses ``fabricFiltered=False`` so the cache reflects data from all
+        fabrics.  Comparison logic in ``verify_attribute_subscription_value`` and
+        ``_fabric_filtered_match`` handles the difference between the unfiltered cache and
+        fabric-filtered reads.
 
         A secondary controller (node_id = controller_node_id + 123456) is used so that
         keepSubscriptions=False from default_controller (issued by tests that manage their
@@ -321,7 +328,7 @@ class MatterBaseTest(base_test.BaseTestClass):
         controller's ACL entry (e.g. via a full ACL overwrite), the subscription stops
         receiving reports rather than repeatedly retrying with failing re-subscriptions.
 
-        The subscription handler is stored as `self.wildcard_subscription_handler` and is
+        The subscription handler is stored as ``self.wildcard_subscription_handler`` and is
         shut down automatically in teardown_test.
 
         This is a synchronous wrapper around an async operation; it uses self.event_loop
@@ -592,7 +599,12 @@ class MatterBaseTest(base_test.BaseTestClass):
                     except Exception as e:
                         LOGGER.warning("[MatterBaseTest] Error restoring ACL: %s", e)
                 try:
-                    self.event_loop.run_until_complete(_restore_acl())
+                    if self.event_loop.is_running():
+                        future = asyncio.run_coroutine_threadsafe(
+                            _restore_acl(), self.event_loop)
+                        future.result(timeout=10)
+                    else:
+                        self.event_loop.run_until_complete(_restore_acl())
                 except Exception as e:
                     LOGGER.warning("[MatterBaseTest] Error running ACL restore: %s", e)
                 self._pre_subscription_acl = None
@@ -1278,10 +1290,10 @@ class MatterBaseTest(base_test.BaseTestClass):
                 return None
 
         # Compare the read value against the background wildcard subscription cache.
-        # Always uses assert_on_error=False so a subscription mismatch records a problem
-        # without disrupting existing test logic or return values.
-        # Skipped automatically for C/Q-quality attributes, missing subscriptions, or
-        # when a non-specified controller/node is used.
+        # Uses assert_on_error=True so a confirmed subscription mismatch fails the test,
+        # surfacing DUT bugs where an attribute changes without a subscription report.
+        # Skipped automatically for C/Q-quality attributes, missing subscriptions,
+        # cross-fabric reads, or when the subscription controller's ACL was removed.
         if read_ok and node_id == self.dut_node_id:
             await self.verify_attribute_subscription_value(
                 attribute=attribute,
@@ -1289,6 +1301,7 @@ class MatterBaseTest(base_test.BaseTestClass):
                 endpoint_id=endpoint,
                 test_name=test_name,
                 assert_on_error=True,
+                dev_ctrl=dev_ctrl,
             )
 
         return attr_ret
@@ -1299,21 +1312,37 @@ class MatterBaseTest(base_test.BaseTestClass):
             read_value: Any,
             endpoint_id: Optional[int] = None,
             test_name: str = "",
-            assert_on_error: bool = True) -> bool:
+            assert_on_error: bool = True,
+            dev_ctrl: Optional[ChipDeviceCtrl.ChipDeviceController] = None) -> bool:
         """Compare a freshly-read attribute value against the background wildcard subscription cache.
 
         Call this immediately after read_single_attribute_check_success() to confirm that
         the device is reporting the same value through its subscription as it returns on a
         direct read.  A mismatch means the subscription is either stale or not firing.
 
-        Attributes with Changes Omitted (C) or Quieter Reporting (Q) spec quality flags are
-        skipped automatically — they are not required to reflect every change in subscription
-        reports, so no comparison is meaningful for them.
+        The comparison is resolved through a series of checks, in order:
 
-        When a persistent mismatch is detected (after retries), this method reads the DUT's
-        current ACL to check whether the subscription controller's entry was removed by
-        the test.  If so, the mismatch is an ACL conflict (not a DUT bug) and is logged as
-        a warning rather than flagged as an error.
+        1. **C/Q skip** — Attributes with Changes Omitted (C) or Quieter Reporting (Q) spec
+           quality flags are skipped automatically; they are not required to reflect every
+           change in subscription reports.
+        2. **Cross-fabric skip** — When the reading controller (dev_ctrl) is on a different
+           fabric than the subscription controller, validation is skipped because
+           fabric-scoped attributes legitimately return different values per-fabric.
+        3. **Exact match** — If the read value equals the cached value, the check passes.
+        4. **Retry with delay** — On a mismatch, the method retries up to 3 times (1 s apart)
+           to allow the subscription report to arrive.
+        5. **Fabric-scoped filtering** — During each retry (and once more after retries are
+           exhausted), ``_fabric_filtered_match()`` checks whether the mismatch is caused by
+           the subscription cache containing entries from multiple fabrics while the read
+           (which defaults to ``fabricFiltered=True``) only returns the reading fabric's
+           entries.  If the cache, filtered to the read value's fabric indices, matches the
+           read value, the difference is purely cross-fabric data and not a DUT bug.
+        6. **ACL conflict check** — If retries and fabric filtering both fail, the method
+           reads the DUT's current ACL to check whether the subscription controller's entry
+           was removed by the test.  If so, the mismatch is an ACL conflict (not a DUT bug)
+           and is logged as a warning.
+        7. **Fail** — If none of the above resolve the mismatch, it is reported as a test
+           failure (``assert_on_error=True``) or recorded problem (``assert_on_error=False``).
 
         Args:
             attribute:      Attribute descriptor class (e.g. Clusters.OnOff.Attributes.OnOff).
@@ -1322,11 +1351,12 @@ class MatterBaseTest(base_test.BaseTestClass):
             test_name:      Included in recorded problems when assert_on_error is False.
             assert_on_error: If True, calls asserts.fail() on mismatch.
                              If False, records a problem via record_error() and returns False.
+            dev_ctrl:       Controller used for the direct read.  When its fabric differs
+                            from the subscription controller's fabric, validation is skipped.
 
         Returns:
             True if the values match or the check was skipped; False on mismatch.
         """
-        LOGGER.info("verify_attribute_subscription_value called")
         if endpoint_id is None:
             endpoint_id = self.get_endpoint()
 
@@ -1341,6 +1371,17 @@ class MatterBaseTest(base_test.BaseTestClass):
 
         if self.wildcard_subscription_handler is None:
             return True
+
+        if dev_ctrl is not None and self.subscription_controller is not None:
+            try:
+                if dev_ctrl.fabricId != self.subscription_controller.fabricId:
+                    LOGGER.info(
+                        f"[verify_subscription] Skipping validation for {attribute.__name__} on endpoint {endpoint_id}: "
+                        f"reading controller fabric {dev_ctrl.fabricId} differs from subscription controller "
+                        f"fabric {self.subscription_controller.fabricId} — fabric-scoped attributes will legitimately differ")
+                    return True
+            except AttributeError:
+                pass
 
         cached_value = self.wildcard_subscription_handler.get_latest_value(endpoint_id, cluster_id, attr_id)
 
@@ -1368,8 +1409,19 @@ class MatterBaseTest(base_test.BaseTestClass):
                         f"[verify_subscription] {attribute.__name__} on endpoint {endpoint_id} matched after "
                         f"{attempt + 1}s retry: {read_value}")
                     return True
+                if self._fabric_filtered_match(read_value, cached_value):
+                    LOGGER.info(
+                        f"[verify_subscription] {attribute.__name__} on endpoint {endpoint_id} matched after "
+                        f"fabric-scoped filtering (retry {attempt + 1})")
+                    return True
                 LOGGER.info(
                     f"[verify_subscription] Retry {attempt + 1}/3: still mismatched, cache={cached_value!r}")
+
+            if self._fabric_filtered_match(read_value, cached_value):
+                LOGGER.info(
+                    f"[verify_subscription] {attribute.__name__} on endpoint {endpoint_id} "
+                    f"differs only by cross-fabric entries — not a DUT bug")
+                return True
 
             if await self._is_subscription_acl_removed():
                 LOGGER.warning(
@@ -1394,6 +1446,47 @@ class MatterBaseTest(base_test.BaseTestClass):
         LOGGER.info(
             f"[verify_subscription] {attribute.__name__} on endpoint {endpoint_id} matches read value: {read_value}")
         return True
+
+    @staticmethod
+    def _fabric_filtered_match(read_value: Any, cached_value: Any) -> bool:
+        """Check whether a read-vs-cache mismatch is caused by fabric-scoped filtering.
+
+        The wildcard subscription uses ``fabricFiltered=False`` so its cache contains entries
+        from all fabrics.  ``read_single_attribute_check_success`` defaults to
+        ``fabricFiltered=True``, so the direct read only returns entries for the reading
+        controller's fabric.  For fabric-scoped list attributes (structs with a
+        ``fabricIndex`` field) this means the cache legitimately has more entries than the
+        read.
+
+        Algorithm:
+            1. Both values must be non-empty lists and the cache must be strictly longer.
+            2. Every entry in the cached list must have a ``fabricIndex`` attribute
+               (i.e. the attribute is fabric-scoped).
+            3. Collect the set of ``fabricIndex`` values present in the read value.
+            4. Filter the cached list to only entries whose ``fabricIndex`` is in that set.
+            5. Compare the filtered cache against the read value.
+
+        Returns:
+            True if the read value matches the fabric-filtered cache, confirming the
+            difference is purely cross-fabric data and not a missing subscription report.
+            False if the values differ for any other reason, or if either value is not a
+            list of fabric-scoped structs.
+        """
+        if not isinstance(read_value, list) or not isinstance(cached_value, list):
+            return False
+        if len(read_value) == 0 or len(cached_value) == 0:
+            return False
+        if len(cached_value) <= len(read_value):
+            return False
+        if not all(hasattr(entry, 'fabricIndex') for entry in cached_value):
+            return False
+
+        read_fabric_indices = {entry.fabricIndex for entry in read_value if hasattr(entry, 'fabricIndex')}
+        if not read_fabric_indices:
+            return False
+
+        filtered_cache = [entry for entry in cached_value if entry.fabricIndex in read_fabric_indices]
+        return filtered_cache == read_value
 
     async def _is_subscription_acl_removed(self) -> bool:
         """Check whether the subscription controller's ACL entry has been removed from the DUT.

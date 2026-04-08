@@ -628,7 +628,7 @@ class WildcardAttributeSubscriptionHandler:
     async def start(self, dev_ctrl, node_id: int, attributes: list,
                     fabric_filtered: bool = False,
                     min_interval_sec: int = 0,
-                    max_interval_sec: int = 5,
+                    max_interval_sec: int = 30,
                     keepSubscriptions: bool = False,
                     autoResubscribe: bool = False) -> Any:
         """
@@ -642,9 +642,13 @@ class WildcardAttributeSubscriptionHandler:
             dev_ctrl: Device controller to use for the subscription.
             node_id: Node ID of the device to subscribe to.
             attributes: List of attribute paths (can include wildcards).
-            fabric_filtered: Whether to filter by fabric.
+            fabric_filtered: Whether to filter by fabric.  Defaults to False so the cache
+                reflects data from all fabrics; comparison logic in
+                verify_attribute_subscription_value handles the difference between the
+                unfiltered cache and fabric-filtered reads.
             min_interval_sec: Minimum reporting interval in seconds.
-            max_interval_sec: Maximum reporting interval in seconds.
+            max_interval_sec: Maximum reporting interval in seconds.  Defaults to 30 to
+                match the interval used by _start_wildcard_subscription.
             keepSubscriptions: Whether to keep existing subscriptions.
             autoResubscribe: Whether to automatically resubscribe on subscription loss.
 
