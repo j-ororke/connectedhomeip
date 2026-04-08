@@ -48,7 +48,7 @@ class TC_BRBINFO_2_1(BasicInformationAttributesVerificationBase):
         # BRBINFO test plan omits Basic Information attributes not present on Bridged Device Basic Information:
         # DataModelRevision (1), Location (7), LocalConfigDisabled (17), CapabilityMinima (20),
         # SpecificationVersion (22), MaxPathsPerInvoke (23).
-        return self.steps_brbinfo_2_1()
+        return self.steps()
 
     def pics_TC_BRBINFO_2_1(self) -> list[str]:
         return self.pics('BRBINFO')
