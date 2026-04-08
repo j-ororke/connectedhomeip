@@ -47,7 +47,7 @@ class TC_BRBINFO_2_1(BasicInformationAttributesVerificationBase):
     def steps_TC_BRBINFO_2_1(self) -> list[TestStep]:
         # BRBINFO test plan omits Basic Information attributes not present on Bridged Device Basic Information:
         # DataModelRevision (1), Location (7), LocalConfigDisabled (17), CapabilityMinima (20),
-        # SpecificationVersion (22), MaxPathsPerInvoke (23). Steps are renumbered 0..N to match implementation.
+        # SpecificationVersion (22), MaxPathsPerInvoke (23).
         return self.steps_brbinfo_2_1()
 
     def pics_TC_BRBINFO_2_1(self) -> list[str]:
@@ -55,7 +55,7 @@ class TC_BRBINFO_2_1(BasicInformationAttributesVerificationBase):
 
     @async_test_body
     async def test_TC_BRBINFO_2_1(self):
-        await self.implementation(Clusters.BridgedDeviceBasicInformation, brbinfo=True)
+        await self.implementation(Clusters.BridgedDeviceBasicInformation)
 
 
 if __name__ == "__main__":

@@ -16,36 +16,19 @@
 #
 
 from datetime import datetime
-from typing import Optional
 
 import pycountry
 import validators
 from mobly import asserts
-from support_modules.binfo_support import BINFOBaseTest
 
 from matter.clusters.ClusterObjects import Cluster
 from matter.testing.conformance import ConformanceException
 from matter.testing.decorators import _has_attribute
-from matter.testing.matter_testing import TestStep
+from matter.testing.matter_testing import MatterBaseTest, TestStep
 from matter.testing.spec_parsing import dm_from_spec_version
 
-# Basic Information cluster ClusterRevision at which CapabilityMinima includes extended
-# fields (e.g. read/subscribe paths, simultaneous invocations/writes) and applies 10_000
-# upper bounds on counters; below this revision the test allows legacy 65_535 caps on the
-# original two fields only (TC-BINFO / TC-BRBINFO 2.1 step 20).
-_CAPABILITY_MINIMA_EXTENDED_FIELDS_CLUSTER_REVISION = 6
 
-
-class BasicInformationAttributesVerificationBase(BINFOBaseTest):
-    # TC-BRBINFO-2.1: same checks as BINFO but omit bases not on Bridged Device Basic Information.
-    _BRBINFO_2_1_BASE_STEP_ORDER = (
-        0, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 14, 15, 16,
-        18, 19, 21, 24, 25, 26, 27, 28, 29,
-    )
-
-    def steps_brbinfo_2_1(self) -> list[TestStep]:
-        return self.subset_renumbered_test_steps(self.steps(), self._BRBINFO_2_1_BASE_STEP_ORDER)
-
+class BasicInformationAttributesVerificationBase(MatterBaseTest):
     def steps(self) -> list[TestStep]:
         return [
             TestStep(0, "DUT commissioned if not already done", is_commissioning=True),
@@ -100,368 +83,324 @@ class BasicInformationAttributesVerificationBase(BINFOBaseTest):
     def pics(self, cluster_pics) -> list[str]:
         return [f"{cluster_pics}.S"]
 
-    async def implementation(self, cluster: Cluster, *, brbinfo: bool = False):
-        full_step_order = tuple(range(len(self.steps())))
-        order = self._BRBINFO_2_1_BASE_STEP_ORDER if brbinfo else full_step_order
-        plan_step = self.plan_step_indices(order)
-
-        # attribute_guard: DUT lists the attribute on this endpoint (wildcard / AttributeList).
-        # hasattr(cluster.Attributes, ...): the generated cluster class defines that descriptor.
-        #   BasicInformation vs BridgedDeviceBasicInformation omit some attributes from the type
-        #   entirely; without hasattr, cluster.Attributes.X raises before attribute_guard runs.
-        # Steps that only use attribute_guard refer to attributes present on every cluster used here.
-
+    async def implementation(self, cluster: Cluster):
         self.endpoint = self.get_endpoint()
-        serial_number: Optional[str] = None
-        self.step(plan_step[0])  # commissioning already done
+        self.step(0)  # commissioning already done
 
-        # Step 1: DataModelRevision
-        if 1 in plan_step:
-            self.step(plan_step[1])
-            if hasattr(cluster.Attributes, 'DataModelRevision') and await self.attribute_guard(endpoint=self.endpoint, attribute=cluster.Attributes.DataModelRevision):
-                ret1 = await self.read_single_attribute_check_success(cluster=cluster, attribute=cluster.Attributes.DataModelRevision)
-                asserts.assert_equal(ret1, 19, "DataModelRevision should be 19")
-            elif not hasattr(cluster.Attributes, 'DataModelRevision'):
-                self.mark_current_step_skipped()
+        self.step(1)
+        if hasattr(cluster.Attributes, 'DataModelRevision') and await self.attribute_guard(endpoint=self.endpoint, attribute=cluster.Attributes.DataModelRevision):
+            ret1 = await self.read_single_attribute_check_success(cluster=cluster, attribute=cluster.Attributes.DataModelRevision)
+            asserts.assert_equal(ret1, 19, "DataModelRevision should be 19")
+        elif not hasattr(cluster.Attributes, 'DataModelRevision'):
+            self.mark_current_step_skipped()
 
         # Step 2: VendorName
-        if 2 in plan_step:
-            self.step(plan_step[2])
-            if await self.attribute_guard(endpoint=self.endpoint, attribute=cluster.Attributes.VendorName):
-                vendor_name = await self.read_single_attribute_check_success(cluster=cluster, attribute=cluster.Attributes.VendorName)
-                asserts.assert_true(isinstance(vendor_name, str), "VendorName should be a string")
-                asserts.assert_less_equal(len(vendor_name), 32, "VendorName should be a string with max 32 bytes")
+        self.step(2)
+        if await self.attribute_guard(endpoint=self.endpoint, attribute=cluster.Attributes.VendorName):
+            vendor_name = await self.read_single_attribute_check_success(cluster=cluster, attribute=cluster.Attributes.VendorName)
+            asserts.assert_true(isinstance(vendor_name, str), "VendorName should be a string")
+            asserts.assert_less_equal(len(vendor_name), 32, "VendorName should be a string with max 32 bytes")
 
         # Step 3: VendorID
-        if 3 in plan_step:
-            self.step(plan_step[3])
-            if await self.attribute_guard(endpoint=self.endpoint, attribute=cluster.Attributes.VendorID):
-                ret3 = await self.read_single_attribute_check_success(cluster=cluster, attribute=cluster.Attributes.VendorID)
-                asserts.assert_greater_equal(ret3, 0x0001, "VendorID should be greater than or equal to 0x0001")
-                # 0xFFF1-0xFFF4 are reserved for test vendors, so we allow up to 0xFFF4
-                asserts.assert_less_equal(ret3, 0xFFF4, "VendorID should be less than or equal to 0xFFF4")
+        self.step(3)
+        if await self.attribute_guard(endpoint=self.endpoint, attribute=cluster.Attributes.VendorID):
+            ret3 = await self.read_single_attribute_check_success(cluster=cluster, attribute=cluster.Attributes.VendorID)
+            asserts.assert_greater_equal(ret3, 0x0001, "VendorID should be greater than or equal to 0x0001")
+            # 0xFFF1-0xFFF4 are reserved for test vendors, so we allow up to 0xFFF4
+            asserts.assert_less_equal(ret3, 0xFFF4, "VendorID should be less than or equal to 0xFFF4")
 
         # Step 4: ProductName
-        if 4 in plan_step:
-            self.step(plan_step[4])
-            if await self.attribute_guard(endpoint=self.endpoint, attribute=cluster.Attributes.ProductName):
-                ret4 = await self.read_single_attribute_check_success(cluster=cluster, attribute=cluster.Attributes.ProductName)
-                asserts.assert_equal(len(ret4) <= 32, True, "ProductName should be a string with max 32 bytes")
+        self.step(4)
+        if await self.attribute_guard(endpoint=self.endpoint, attribute=cluster.Attributes.ProductName):
+            ret4 = await self.read_single_attribute_check_success(cluster=cluster, attribute=cluster.Attributes.ProductName)
+            asserts.assert_equal(len(ret4) <= 32, True, "ProductName should be a string with max 32 bytes")
 
         # Step 5: ProductID
-        if 5 in plan_step:
-            self.step(plan_step[5])
-            if await self.attribute_guard(endpoint=self.endpoint, attribute=cluster.Attributes.ProductID):
-                ret5 = await self.read_single_attribute_check_success(cluster=cluster, attribute=cluster.Attributes.ProductID)
-                asserts.assert_greater_equal(ret5, 1, "ProductID should be greater than or equal to 1")
-                asserts.assert_less_equal(ret5, 65534, "ProductID should be less than or equal to 65534")
+        self.step(5)
+        if await self.attribute_guard(endpoint=self.endpoint, attribute=cluster.Attributes.ProductID):
+            ret5 = await self.read_single_attribute_check_success(cluster=cluster, attribute=cluster.Attributes.ProductID)
+            asserts.assert_greater_equal(ret5, 1, "ProductID should be greater than or equal to 1")
+            asserts.assert_less_equal(ret5, 65534, "ProductID should be less than or equal to 65534")
 
         # Step 6: NodeLabel
-        if 6 in plan_step:
-            self.step(plan_step[6])
-            if await self.attribute_guard(endpoint=self.endpoint, attribute=cluster.Attributes.NodeLabel):
-                ret6 = await self.read_single_attribute_check_success(cluster=cluster, attribute=cluster.Attributes.NodeLabel)
-                asserts.assert_equal(len(ret6) <= 32, True, "NodeLabel should be a string with max 32 bytes")
+        self.step(6)
+        if await self.attribute_guard(endpoint=self.endpoint, attribute=cluster.Attributes.NodeLabel):
+            ret6 = await self.read_single_attribute_check_success(cluster=cluster, attribute=cluster.Attributes.NodeLabel)
+            asserts.assert_equal(len(ret6) <= 32, True, "NodeLabel should be a string with max 32 bytes")
 
         # Step 7: Location
-        if 7 in plan_step:
-            self.step(plan_step[7])
-            if hasattr(cluster.Attributes, 'Location') and await self.attribute_guard(endpoint=self.endpoint, attribute=cluster.Attributes.Location):
-                ret7 = await self.read_single_attribute_check_success(cluster=cluster, attribute=cluster.Attributes.Location)
-                asserts.assert_true(isinstance(ret7, str), "Location should be a string")
-                asserts.assert_less_equal(len(ret7), 2, "Location should have max 2 characters")
-                # Location should be a valid ISO 3166-1 alpha-2 country code or empty string "XX"
-                if ret7 != "XX":
-                    # Use pycountry to validate the country code
-                    country = pycountry.countries.get(alpha_2=ret7)
-                    asserts.assert_is_not_none(country, f"Location '{ret7}' should be a valid ISO 3166-1 alpha-2 country code")
-            elif not hasattr(cluster.Attributes, 'Location'):
-                self.mark_current_step_skipped()
+        self.step(7)
+        if hasattr(cluster.Attributes, 'Location') and await self.attribute_guard(endpoint=self.endpoint, attribute=cluster.Attributes.Location):
+            ret7 = await self.read_single_attribute_check_success(cluster=cluster, attribute=cluster.Attributes.Location)
+            asserts.assert_true(isinstance(ret7, str), "Location should be a string")
+            asserts.assert_less_equal(len(ret7), 2, "Location should have max 2 characters")
+            # Location should be a valid ISO 3166-1 alpha-2 country code or empty string "XX"
+            if ret7 != "XX":
+                # Use pycountry to validate the country code
+                country = pycountry.countries.get(alpha_2=ret7)
+                asserts.assert_is_not_none(country, f"Location '{ret7}' should be a valid ISO 3166-1 alpha-2 country code")
+        elif not hasattr(cluster.Attributes, 'Location'):
+            self.mark_current_step_skipped()
 
         # Step 8: HardwareVersion
-        if 8 in plan_step:
-            self.step(plan_step[8])
-            if await self.attribute_guard(endpoint=self.endpoint, attribute=cluster.Attributes.HardwareVersion):
-                ret8 = await self.read_single_attribute_check_success(cluster=cluster, attribute=cluster.Attributes.HardwareVersion)
-                asserts.assert_greater_equal(ret8, 0, "HardwareVersion should be greater than or equal to 0")
-                asserts.assert_less_equal(ret8, 65534, "HardwareVersion should be less than or equal to 65534")
+        self.step(8)
+        if await self.attribute_guard(endpoint=self.endpoint, attribute=cluster.Attributes.HardwareVersion):
+            ret8 = await self.read_single_attribute_check_success(cluster=cluster, attribute=cluster.Attributes.HardwareVersion)
+            asserts.assert_greater_equal(ret8, 0, "HardwareVersion should be greater than or equal to 0")
+            asserts.assert_less_equal(ret8, 65534, "HardwareVersion should be less than or equal to 65534")
 
         # Step 9: HardwareVersionString
-        if 9 in plan_step:
-            self.step(plan_step[9])
-            if await self.attribute_guard(endpoint=self.endpoint, attribute=cluster.Attributes.HardwareVersionString):
-                ret9 = await self.read_single_attribute_check_success(cluster=cluster, attribute=cluster.Attributes.HardwareVersionString)
-                asserts.assert_true(isinstance(ret9, str), "HardwareVersionString should be a string")
-                asserts.assert_equal(len(ret9) <= 64, True, "HardwareVersionString should be a string with max 64 bytes")
+        self.step(9)
+        if await self.attribute_guard(endpoint=self.endpoint, attribute=cluster.Attributes.HardwareVersionString):
+            ret9 = await self.read_single_attribute_check_success(cluster=cluster, attribute=cluster.Attributes.HardwareVersionString)
+            asserts.assert_true(isinstance(ret9, str), "HardwareVersionString should be a string")
+            asserts.assert_equal(len(ret9) <= 64, True, "HardwareVersionString should be a string with max 64 bytes")
 
         # Step 10: SoftwareVersion
-        if 10 in plan_step:
-            self.step(plan_step[10])
-            if await self.attribute_guard(endpoint=self.endpoint, attribute=cluster.Attributes.SoftwareVersion):
-                ret10 = await self.read_single_attribute_check_success(cluster=cluster, attribute=cluster.Attributes.SoftwareVersion)
-                asserts.assert_greater_equal(ret10, 0, "SoftwareVersion should be greater than or equal to 0")
-                asserts.assert_less_equal(ret10, 4294967294, "SoftwareVersion should be less than or equal to 4294967294")
+        self.step(10)
+        if await self.attribute_guard(endpoint=self.endpoint, attribute=cluster.Attributes.SoftwareVersion):
+            ret10 = await self.read_single_attribute_check_success(cluster=cluster, attribute=cluster.Attributes.SoftwareVersion)
+            asserts.assert_greater_equal(ret10, 0, "SoftwareVersion should be greater than or equal to 0")
+            asserts.assert_less_equal(ret10, 4294967294, "SoftwareVersion should be less than or equal to 4294967294")
 
         # Step 11: SoftwareVersionString
-        if 11 in plan_step:
-            self.step(plan_step[11])
-            if await self.attribute_guard(endpoint=self.endpoint, attribute=cluster.Attributes.SoftwareVersionString):
-                ret11 = await self.read_single_attribute_check_success(cluster=cluster, attribute=cluster.Attributes.SoftwareVersionString)
-                asserts.assert_true(isinstance(ret11, str), "SoftwareVersionString should be a string")
-                asserts.assert_equal(len(ret11) <= 64, True, "SoftwareVersionString should be a string with max 64 bytes")
+        self.step(11)
+        if await self.attribute_guard(endpoint=self.endpoint, attribute=cluster.Attributes.SoftwareVersionString):
+            ret11 = await self.read_single_attribute_check_success(cluster=cluster, attribute=cluster.Attributes.SoftwareVersionString)
+            asserts.assert_true(isinstance(ret11, str), "SoftwareVersionString should be a string")
+            asserts.assert_equal(len(ret11) <= 64, True, "SoftwareVersionString should be a string with max 64 bytes")
 
         # Step 12: ManufacturingDate
-        if 12 in plan_step:
-            self.step(plan_step[12])
-            if await self.attribute_guard(endpoint=self.endpoint, attribute=cluster.Attributes.ManufacturingDate):
-                ret12 = await self.read_single_attribute_check_success(cluster=cluster, attribute=cluster.Attributes.ManufacturingDate)
-                asserts.assert_true(isinstance(ret12, str), "Manufacturing Date should be a string")
-                asserts.assert_greater_equal(len(ret12), 8, "ManufacturingDate should have at least 8 characters")
-                asserts.assert_less_equal(len(ret12), 16, "ManufacturingDate should have max 16 characters")
-                # Validate the first 8 characters are a valid date in YYYYMMDD format
-                date_str = ret12[:8]
-                try:
-                    parsed_date = datetime.strptime(date_str, "%Y%m%d")
+        self.step(12)
+        if await self.attribute_guard(endpoint=self.endpoint, attribute=cluster.Attributes.ManufacturingDate):
+            ret12 = await self.read_single_attribute_check_success(cluster=cluster, attribute=cluster.Attributes.ManufacturingDate)
+            asserts.assert_true(isinstance(ret12, str), "Manufacturing Date should be a string")
+            asserts.assert_greater_equal(len(ret12), 8, "ManufacturingDate should have at least 8 characters")
+            asserts.assert_less_equal(len(ret12), 16, "ManufacturingDate should have max 16 characters")
+            # Validate the first 8 characters are a valid date in YYYYMMDD format
+            date_str = ret12[:8]
+            try:
+                parsed_date = datetime.strptime(date_str, "%Y%m%d")
 
-                    # Verify it's not a future date
-                    asserts.assert_less_equal(parsed_date, datetime.now(), "ManufacturingDate should not be in the future")
+                # Verify it's not a future date
+                asserts.assert_less_equal(parsed_date, datetime.now(), "ManufacturingDate should not be in the future")
 
-                    # Verify it's also not before the first Matter release (Matter 1.0 released October 4, 2022)
-                    # Allow 2020-01-01 as a valid date (SDK default value)
-                    first_matter_release = datetime(2022, 10, 4)
-                    sdk_default_date = datetime(2020, 1, 1)
-                    is_ci = self.check_pics("PICS_SDK_CI_ONLY")
-                    if is_ci:
-                        is_valid_date = parsed_date >= first_matter_release or parsed_date == sdk_default_date
-                        asserts.assert_true(
-                            is_valid_date,
-                            "ManufacturingDate should not be before the first Matter release date (2022-10-04), except for SDK default value (2020-01-01)")
-                    else:
-                        asserts.assert_greater_equal(
-                            parsed_date, first_matter_release,
-                            "ManufacturingDate should not be before the first Matter release date (2022-10-04)")
-                except ValueError:
-                    asserts.fail(f"ManufacturingDate '{date_str}' is not a valid date in YYYYMMDD format")
+                # Verify it's also not before the first Matter release (Matter 1.0 released October 4, 2022)
+                # Allow 2020-01-01 as a valid date (SDK default value)
+                first_matter_release = datetime(2022, 10, 4)
+                sdk_default_date = datetime(2020, 1, 1)
+                is_ci = self.check_pics("PICS_SDK_CI_ONLY")
+                if is_ci:
+                    is_valid_date = parsed_date >= first_matter_release or parsed_date == sdk_default_date
+                    asserts.assert_true(
+                        is_valid_date,
+                        "ManufacturingDate should not be before the first Matter release date (2022-10-04), except for SDK default value (2020-01-01)")
+                else:
+                    asserts.assert_greater_equal(
+                        parsed_date, first_matter_release,
+                        "ManufacturingDate should not be before the first Matter release date (2022-10-04)")
+            except ValueError:
+                asserts.fail(f"ManufacturingDate '{date_str}' is not a valid date in YYYYMMDD format")
 
         # Step 13: PartNumber
-        if 13 in plan_step:
-            self.step(plan_step[13])
-            if await self.attribute_guard(endpoint=self.endpoint, attribute=cluster.Attributes.PartNumber):
-                ret13 = await self.read_single_attribute_check_success(cluster=cluster, attribute=cluster.Attributes.PartNumber)
-                asserts.assert_true(isinstance(ret13, str), "PartNumber should be a string")
-                asserts.assert_equal(len(ret13) <= 32, True, "PartNumber should be a string with max 32 bytes")
+        self.step(13)
+        if await self.attribute_guard(endpoint=self.endpoint, attribute=cluster.Attributes.PartNumber):
+            ret13 = await self.read_single_attribute_check_success(cluster=cluster, attribute=cluster.Attributes.PartNumber)
+            asserts.assert_true(isinstance(ret13, str), "PartNumber should be a string")
+            asserts.assert_equal(len(ret13) <= 32, True, "PartNumber should be a string with max 32 bytes")
 
         # Step 14: ProductURL
-        if 14 in plan_step:
-            self.step(plan_step[14])
-            if await self.attribute_guard(endpoint=self.endpoint, attribute=cluster.Attributes.ProductURL):
-                ret14 = await self.read_single_attribute_check_success(cluster=cluster, attribute=cluster.Attributes.ProductURL)
-                asserts.assert_true(isinstance(ret14, str), "ProductURL should be a string")
-                asserts.assert_less_equal(len(ret14), 256, "ProductURL should be a string with max 256 bytes")
-                # Only validate URL format if the string is not empty
-                if len(ret14) > 0:
-                    asserts.assert_true(validators.url(ret14), f"ProductURL '{ret14}' should be a valid URL per RFC 3986")
+        self.step(14)
+        if await self.attribute_guard(endpoint=self.endpoint, attribute=cluster.Attributes.ProductURL):
+            ret14 = await self.read_single_attribute_check_success(cluster=cluster, attribute=cluster.Attributes.ProductURL)
+            asserts.assert_true(isinstance(ret14, str), "ProductURL should be a string")
+            asserts.assert_less_equal(len(ret14), 256, "ProductURL should be a string with max 256 bytes")
+            # Only validate URL format if the string is not empty
+            if len(ret14) > 0:
+                asserts.assert_true(validators.url(ret14), f"ProductURL '{ret14}' should be a valid URL per RFC 3986")
 
         # Step 15: ProductLabel
-        if 15 in plan_step:
-            self.step(plan_step[15])
-            if await self.attribute_guard(endpoint=self.endpoint, attribute=cluster.Attributes.ProductLabel):
-                ret15 = await self.read_single_attribute_check_success(cluster=cluster, attribute=cluster.Attributes.ProductLabel)
-                asserts.assert_true(isinstance(ret15, str), "ProductLabel should be a string")
-                asserts.assert_equal(len(ret15) <= 64, True, "ProductLabel should be a string with max 64 bytes")
-                await self._populate_wildcard()
-                if _has_attribute(wildcard=self.stored_global_wildcard, endpoint=self.endpoint, attribute=cluster.Attributes.VendorName):
-                    asserts.assert_not_in(
-                        vendor_name, ret15, "ProductLabel should not include the name of the vendor as defined within the VendorName attribute")
+        self.step(15)
+        if await self.attribute_guard(endpoint=self.endpoint, attribute=cluster.Attributes.ProductLabel):
+            ret15 = await self.read_single_attribute_check_success(cluster=cluster, attribute=cluster.Attributes.ProductLabel)
+            asserts.assert_true(isinstance(ret15, str), "ProductLabel should be a string")
+            asserts.assert_equal(len(ret15) <= 64, True, "ProductLabel should be a string with max 64 bytes")
+            await self._populate_wildcard()
+            if _has_attribute(wildcard=self.stored_global_wildcard, endpoint=self.endpoint, attribute=cluster.Attributes.VendorName):
+                asserts.assert_not_in(
+                    vendor_name, ret15, "ProductLabel should not include the name of the vendor as defined within the VendorName attribute")
 
         # Step 16: SerialNumber
-        if 16 in plan_step:
-            self.step(plan_step[16])
-            if await self.attribute_guard(endpoint=self.endpoint, attribute=cluster.Attributes.SerialNumber):
-                serial_number = await self.read_single_attribute_check_success(cluster=cluster, attribute=cluster.Attributes.SerialNumber)
-                asserts.assert_true(isinstance(serial_number, str), "SerialNumber should be a string")
-                asserts.assert_less_equal(len(serial_number), 32, "SerialNumber should be a string with max 32 bytes")
+        self.step(16)
+        if await self.attribute_guard(endpoint=self.endpoint, attribute=cluster.Attributes.SerialNumber):
+            serial_number = await self.read_single_attribute_check_success(cluster=cluster, attribute=cluster.Attributes.SerialNumber)
+            asserts.assert_true(isinstance(serial_number, str), "SerialNumber should be a string")
+            asserts.assert_less_equal(len(serial_number), 32, "SerialNumber should be a string with max 32 bytes")
 
         # Step 17: LocalConfigDisabled
-        if 17 in plan_step:
-            self.step(plan_step[17])
-            if hasattr(cluster.Attributes, 'LocalConfigDisabled') and await self.attribute_guard(endpoint=self.endpoint, attribute=cluster.Attributes.LocalConfigDisabled):
-                ret17 = await self.read_single_attribute_check_success(cluster=cluster, attribute=cluster.Attributes.LocalConfigDisabled)
-                asserts.assert_true(isinstance(ret17, bool), "LocalConfigDisabled should be a boolean")
-                asserts.assert_equal(ret17, False, "LocalConfigDisabled should be set to false")
-            elif not hasattr(cluster.Attributes, 'LocalConfigDisabled'):
-                self.mark_current_step_skipped()
+        self.step(17)
+        if hasattr(cluster.Attributes, 'LocalConfigDisabled') and await self.attribute_guard(endpoint=self.endpoint, attribute=cluster.Attributes.LocalConfigDisabled):
+            ret17 = await self.read_single_attribute_check_success(cluster=cluster, attribute=cluster.Attributes.LocalConfigDisabled)
+            asserts.assert_true(isinstance(ret17, bool), "LocalConfigDisabled should be a boolean")
+            asserts.assert_equal(ret17, False, "LocalConfigDisabled should be set to false")
+        elif not hasattr(cluster.Attributes, 'LocalConfigDisabled'):
+            self.mark_current_step_skipped()
 
         # Step 18: Reachable
-        if 18 in plan_step:
-            self.step(plan_step[18])
-            if await self.attribute_guard(endpoint=self.endpoint, attribute=cluster.Attributes.Reachable):
-                ret18 = await self.read_single_attribute_check_success(cluster=cluster, attribute=cluster.Attributes.Reachable)
-                asserts.assert_true(isinstance(ret18, bool), "Reachable should be a boolean")
-                asserts.assert_equal(ret18, True, "Reachable should be set to true")
+        self.step(18)
+        if await self.attribute_guard(endpoint=self.endpoint, attribute=cluster.Attributes.Reachable):
+            ret18 = await self.read_single_attribute_check_success(cluster=cluster, attribute=cluster.Attributes.Reachable)
+            asserts.assert_true(isinstance(ret18, bool), "Reachable should be a boolean")
+            asserts.assert_equal(ret18, True, "Reachable should be set to true")
 
         # Step 19: UniqueID
-        if 19 in plan_step:
-            self.step(plan_step[19])
-            if await self.attribute_guard(endpoint=self.endpoint, attribute=cluster.Attributes.UniqueID):
-                ret19 = await self.read_single_attribute_check_success(cluster=cluster, attribute=cluster.Attributes.UniqueID)
-                asserts.assert_true(isinstance(ret19, str), "UniqueID should be a string")
-                await self._populate_wildcard()
-                if _has_attribute(wildcard=self.stored_global_wildcard, endpoint=self.endpoint, attribute=cluster.Attributes.SerialNumber):
-                    asserts.assert_is_not_none(
-                        serial_number, "SerialNumber should have been read in step 16 when present in AttributeList")
-                    asserts.assert_not_equal(
-                        ret19, serial_number, "UniqueID should not be identical to SerialNumber attribute if SerialNumber attribute is supported")
+        self.step(19)
+        if await self.attribute_guard(endpoint=self.endpoint, attribute=cluster.Attributes.UniqueID):
+            ret19 = await self.read_single_attribute_check_success(cluster=cluster, attribute=cluster.Attributes.UniqueID)
+            asserts.assert_true(isinstance(ret19, str), "UniqueID should be a string")
+            await self._populate_wildcard()
+            if _has_attribute(wildcard=self.stored_global_wildcard, endpoint=self.endpoint, attribute=cluster.Attributes.SerialNumber):
+                asserts.assert_not_equal(
+                    ret19, serial_number, "UniqueID should not be identical to SerialNumber attribute if SerialNumber attribute is supported")
 
         # Step 20: CapabilityMinima
-        if 20 in plan_step:
-            self.step(plan_step[20])
-            if hasattr(cluster.Attributes, 'CapabilityMinima') and await self.attribute_guard(endpoint=self.endpoint, attribute=cluster.Attributes.CapabilityMinima):
-                capability_minima = await self.read_single_attribute_check_success(cluster=cluster, attribute=cluster.Attributes.CapabilityMinima)
-                cluster_revision = await self.read_single_attribute_check_success(cluster=cluster, attribute=cluster.Attributes.ClusterRevision)
+        self.step(20)
+        if hasattr(cluster.Attributes, 'CapabilityMinima') and await self.attribute_guard(endpoint=self.endpoint, attribute=cluster.Attributes.CapabilityMinima):
+            capability_minima = await self.read_single_attribute_check_success(cluster=cluster, attribute=cluster.Attributes.CapabilityMinima)
+            cluster_revision = await self.read_single_attribute_check_success(cluster=cluster, attribute=cluster.Attributes.ClusterRevision)
 
-                asserts.assert_greater_equal(capability_minima.caseSessionsPerFabric, 3,
-                                             "CaseSessionsPerFabric should be greater than or equal to 3")
-                asserts.assert_greater_equal(capability_minima.subscriptionsPerFabric, 3,
-                                             "SubscriptionsPerFabric should be greater than or equal to 3")
+            asserts.assert_greater_equal(capability_minima.caseSessionsPerFabric, 3,
+                                         "CaseSessionsPerFabric should be greater than or equal to 3")
+            asserts.assert_greater_equal(capability_minima.subscriptionsPerFabric, 3,
+                                         "SubscriptionsPerFabric should be greater than or equal to 3")
 
-                # New constraints at extended CapabilityMinima layout (ClusterRevision threshold above).
-                if cluster_revision >= _CAPABILITY_MINIMA_EXTENDED_FIELDS_CLUSTER_REVISION:
-                    # Original fields (always present)
-                    asserts.assert_less_equal(capability_minima.caseSessionsPerFabric, 10000,
-                                              "CaseSessionsPerFabric should be less than or equal to 10000")
-                    asserts.assert_less_equal(capability_minima.subscriptionsPerFabric, 10000,
-                                              "SubscriptionsPerFabric should be less than or equal to 10000")
-                    # Additional fields expected once the cluster exposes the extended CapabilityMinima shape.
-                    rev = _CAPABILITY_MINIMA_EXTENDED_FIELDS_CLUSTER_REVISION
-                    asserts.assert_is_not_none(capability_minima.simultaneousInvocationsSupported,
-                                               f"SimultaneousInvocationsSupported should be present when ClusterRevision >= {rev}")
-                    asserts.assert_is_not_none(capability_minima.simultaneousWritesSupported,
-                                               f"SimultaneousWritesSupported should be present when ClusterRevision >= {rev}")
-                    asserts.assert_is_not_none(capability_minima.readPathsSupported,
-                                               f"ReadPathsSupported should be present when ClusterRevision >= {rev}")
-                    asserts.assert_is_not_none(capability_minima.subscribePathsSupported,
-                                               f"SubscribePathsSupported should be present when ClusterRevision >= {rev}")
+            # New constraints: when ClusterRevision >= 6, enforce upper bound of 10000 on all CapabilityMinima fields.
+            if cluster_revision >= 6:
+                # Original fields (always present)
+                asserts.assert_less_equal(capability_minima.caseSessionsPerFabric, 10000,
+                                          "CaseSessionsPerFabric should be less than or equal to 10000")
+                asserts.assert_less_equal(capability_minima.subscriptionsPerFabric, 10000,
+                                          "SubscriptionsPerFabric should be less than or equal to 10000")
+                # Additional fields are expected to be present at ClusterRevision >= 6.
+                asserts.assert_is_not_none(capability_minima.simultaneousInvocationsSupported,
+                                           "SimultaneousInvocationsSupported should be present when ClusterRevision >= 6")
+                asserts.assert_is_not_none(capability_minima.simultaneousWritesSupported,
+                                           "SimultaneousWritesSupported should be present when ClusterRevision >= 6")
+                asserts.assert_is_not_none(capability_minima.readPathsSupported,
+                                           "ReadPathsSupported should be present when ClusterRevision >= 6")
+                asserts.assert_is_not_none(capability_minima.subscribePathsSupported,
+                                           "SubscribePathsSupported should be present when ClusterRevision >= 6")
 
-                    asserts.assert_greater_equal(capability_minima.simultaneousInvocationsSupported, 1,
-                                                 "SimultaneousInvocationsSupported should be greater than or equal to 1")
-                    asserts.assert_less_equal(capability_minima.simultaneousInvocationsSupported, 10000,
-                                              "SimultaneousInvocationsSupported should be less than or equal to 10000")
-                    asserts.assert_greater_equal(capability_minima.simultaneousWritesSupported, 1,
-                                                 "SimultaneousWritesSupported should be greater than or equal to 1")
-                    asserts.assert_less_equal(capability_minima.simultaneousWritesSupported, 10000,
-                                              "SimultaneousWritesSupported should be less than or equal to 10000")
-                    asserts.assert_greater_equal(capability_minima.readPathsSupported, 9,
-                                                 "ReadPathsSupported should be greater than or equal to 9")
-                    asserts.assert_less_equal(capability_minima.readPathsSupported, 10000,
-                                              "ReadPathsSupported should be less than or equal to 10000")
-                    asserts.assert_greater_equal(capability_minima.subscribePathsSupported, 3,
-                                                 "SubscribePathsSupported should be greater than or equal to 3")
-                    asserts.assert_less_equal(capability_minima.subscribePathsSupported, 10000,
-                                              "SubscribePathsSupported should be less than or equal to 10000")
-                else:
-                    # Legacy behavior: some SDK configurations may report UINT16_MAX (65535) for subscriptionsPerFabric.
-                    asserts.assert_less_equal(capability_minima.caseSessionsPerFabric, 65535,
-                                              "CaseSessionsPerFabric should be less than or equal to 65535")
-                    asserts.assert_less_equal(capability_minima.subscriptionsPerFabric, 65535,
-                                              "SubscriptionsPerFabric should be less than or equal to 65535")
-            elif not hasattr(cluster.Attributes, 'CapabilityMinima'):
-                self.mark_current_step_skipped()
+                asserts.assert_greater_equal(capability_minima.simultaneousInvocationsSupported, 1,
+                                             "SimultaneousInvocationsSupported should be greater than or equal to 1")
+                asserts.assert_less_equal(capability_minima.simultaneousInvocationsSupported, 10000,
+                                          "SimultaneousInvocationsSupported should be less than or equal to 10000")
+                asserts.assert_greater_equal(capability_minima.simultaneousWritesSupported, 1,
+                                             "SimultaneousWritesSupported should be greater than or equal to 1")
+                asserts.assert_less_equal(capability_minima.simultaneousWritesSupported, 10000,
+                                          "SimultaneousWritesSupported should be less than or equal to 10000")
+                asserts.assert_greater_equal(capability_minima.readPathsSupported, 9,
+                                             "ReadPathsSupported should be greater than or equal to 9")
+                asserts.assert_less_equal(capability_minima.readPathsSupported, 10000,
+                                          "ReadPathsSupported should be less than or equal to 10000")
+                asserts.assert_greater_equal(capability_minima.subscribePathsSupported, 3,
+                                             "SubscribePathsSupported should be greater than or equal to 3")
+                asserts.assert_less_equal(capability_minima.subscribePathsSupported, 10000,
+                                          "SubscribePathsSupported should be less than or equal to 10000")
+            else:
+                # Legacy behavior: some SDK configurations may report UINT16_MAX (65535) for subscriptionsPerFabric.
+                asserts.assert_less_equal(capability_minima.caseSessionsPerFabric, 65535,
+                                          "CaseSessionsPerFabric should be less than or equal to 65535")
+                asserts.assert_less_equal(capability_minima.subscriptionsPerFabric, 65535,
+                                          "SubscriptionsPerFabric should be less than or equal to 65535")
+        elif not hasattr(cluster.Attributes, 'CapabilityMinima'):
+            self.mark_current_step_skipped()
 
         # Step 21: ProductAppearance
-        if 21 in plan_step:
-            self.step(plan_step[21])
-            if await self.attribute_guard(endpoint=self.endpoint, attribute=cluster.Attributes.ProductAppearance):
-                ret21 = await self.read_single_attribute_check_success(cluster=cluster, attribute=cluster.Attributes.ProductAppearance)
-                asserts.assert_true(isinstance(ret21, cluster.Structs.ProductAppearanceStruct),
-                                    "ProductAppearance should be a ProductAppearanceStruct")
+        self.step(21)
+        if await self.attribute_guard(endpoint=self.endpoint, attribute=cluster.Attributes.ProductAppearance):
+            ret21 = await self.read_single_attribute_check_success(cluster=cluster, attribute=cluster.Attributes.ProductAppearance)
+            asserts.assert_true(isinstance(ret21, cluster.Structs.ProductAppearanceStruct),
+                                "ProductAppearance should be a ProductAppearanceStruct")
 
         # Step 22: SpecificationVersion
-        if 22 in plan_step:
-            self.step(plan_step[22])
-            if hasattr(cluster.Attributes, 'SpecificationVersion') and await self.attribute_guard(endpoint=self.endpoint, attribute=cluster.Attributes.SpecificationVersion):
-                ret22 = await self.read_single_attribute_check_success(cluster=cluster, attribute=cluster.Attributes.SpecificationVersion)
-                try:
-                    dm_from_spec_version(ret22)
-                except ConformanceException:
-                    asserts.fail(f'Unknown SpecificationVersion {ret22:08X}')
-            elif not hasattr(cluster.Attributes, 'SpecificationVersion'):
-                self.mark_current_step_skipped()
+        self.step(22)
+        if hasattr(cluster.Attributes, 'SpecificationVersion') and await self.attribute_guard(endpoint=self.endpoint, attribute=cluster.Attributes.SpecificationVersion):
+            ret22 = await self.read_single_attribute_check_success(cluster=cluster, attribute=cluster.Attributes.SpecificationVersion)
+            try:
+                dm_from_spec_version(ret22)
+            except ConformanceException:
+                asserts.fail(f'Unknown SpecificationVersion {ret22:08X}')
+        elif not hasattr(cluster.Attributes, 'SpecificationVersion'):
+            self.mark_current_step_skipped()
 
         # Step 23: MaxPathsPerInvoke
-        if 23 in plan_step:
-            self.step(plan_step[23])
-            if hasattr(cluster.Attributes, 'MaxPathsPerInvoke') and await self.attribute_guard(endpoint=self.endpoint, attribute=cluster.Attributes.MaxPathsPerInvoke):
-                ret23 = await self.read_single_attribute_check_success(cluster=cluster, attribute=cluster.Attributes.MaxPathsPerInvoke)
-                asserts.assert_greater_equal(ret23, 1, "MaxPathsPerInvoke should be greater than or equal to 1")
-                asserts.assert_less_equal(ret23, 65535, "MaxPathsPerInvoke should be less than or equal to 65535")
-            elif not hasattr(cluster.Attributes, 'MaxPathsPerInvoke'):
-                self.mark_current_step_skipped()
+        self.step(23)
+        if hasattr(cluster.Attributes, 'MaxPathsPerInvoke') and await self.attribute_guard(endpoint=self.endpoint, attribute=cluster.Attributes.MaxPathsPerInvoke):
+            ret23 = await self.read_single_attribute_check_success(cluster=cluster, attribute=cluster.Attributes.MaxPathsPerInvoke)
+            asserts.assert_greater_equal(ret23, 1, "MaxPathsPerInvoke should be greater than or equal to 1")
+            asserts.assert_less_equal(ret23, 65535, "MaxPathsPerInvoke should be less than or equal to 65535")
+        elif not hasattr(cluster.Attributes, 'MaxPathsPerInvoke'):
+            self.mark_current_step_skipped()
 
         # Step 24: DeviceLocation
-        if 24 in plan_step:
-            self.step(plan_step[24])
-            if hasattr(cluster.Attributes, 'DeviceLocation') and await self.attribute_guard(endpoint=self.endpoint, attribute=cluster.Attributes.DeviceLocation):
-                ret24 = await self.read_single_attribute_check_success(cluster=cluster, attribute=cluster.Attributes.DeviceLocation)
-                asserts.assert_true(isinstance(ret24, cluster.Structs.DeviceLocationStruct),
-                                    "DeviceLocation should be a DeviceLocationStruct")
-                asserts.assert_is_not_none(ret24.locationName, "LocationName should not be null")
-                asserts.assert_less_equal(len(ret24.locationName), 128, "LocationName should have max 128 characters")
-                asserts.assert_true(ret24.floorNumber is None or isinstance(ret24.floorNumber, int),
-                                    "FloorNumber should be either null or an int16 value")
-                asserts.assert_true(ret24.areaType is None or (ret24.areaType >= 0x0000 and ret24.areaType <= 0x005F),
-                                    "AreaType should be either null or in the range of 0x0000 to 0x005F")
-            elif not hasattr(cluster.Attributes, 'DeviceLocation'):
-                self.mark_current_step_skipped()
+        self.step(24)
+        if hasattr(cluster.Attributes, 'DeviceLocation') and await self.attribute_guard(endpoint=self.endpoint, attribute=cluster.Attributes.DeviceLocation):
+            ret24 = await self.read_single_attribute_check_success(cluster=cluster, attribute=cluster.Attributes.DeviceLocation)
+            asserts.assert_true(isinstance(ret24, cluster.Structs.DeviceLocationStruct),
+                                "DeviceLocation should be a DeviceLocationStruct")
+            asserts.assert_is_not_none(ret24.locationName, "LocationName should not be null")
+            asserts.assert_less_equal(len(ret24.locationName), 128, "LocationName should have max 128 characters")
+            asserts.assert_true(ret24.floorNumber is None or isinstance(ret24.floorNumber, int),
+                                "FloorNumber should be either null or an int16 value")
+            asserts.assert_true(ret24.areaType is None or (ret24.areaType >= 0x0000 and ret24.areaType <= 0x005F),
+                                "AreaType should be either null or in the range of 0x0000 to 0x005F")
+        elif not hasattr(cluster.Attributes, 'DeviceLocation'):
+            self.mark_current_step_skipped()
 
         # Step 25: Write empty DeviceLocation
-        if 25 in plan_step:
-            self.step(plan_step[25])
-            if hasattr(cluster.Attributes, 'DeviceLocation') and await self.attribute_guard(endpoint=self.endpoint, attribute=cluster.Attributes.DeviceLocation):
-                await self.write_single_attribute_check_success(cluster=cluster, attribute=cluster.Attributes.DeviceLocation, value=cluster.Structs.DeviceLocationStruct(locationName="", floorNumber=-1, areaType=None))
-            elif not hasattr(cluster.Attributes, 'DeviceLocation'):
-                self.mark_current_step_skipped()
+        self.step(25)
+        if hasattr(cluster.Attributes, 'DeviceLocation') and await self.attribute_guard(endpoint=self.endpoint, attribute=cluster.Attributes.DeviceLocation):
+            await self.write_single_attribute_check_success(cluster=cluster, attribute=cluster.Attributes.DeviceLocation, value=cluster.Structs.DeviceLocationStruct(locationName="", floorNumber=-1, areaType=None))
+        elif not hasattr(cluster.Attributes, 'DeviceLocation'):
+            self.mark_current_step_skipped()
 
         # Step 26: Validate write to DeviceLocation from test step 25
-        if 26 in plan_step:
-            self.step(plan_step[26])
-            if hasattr(cluster.Attributes, 'DeviceLocation') and await self.attribute_guard(endpoint=self.endpoint, attribute=cluster.Attributes.DeviceLocation):
-                ret26 = await self.read_single_attribute_check_success(cluster=cluster, attribute=cluster.Attributes.DeviceLocation)
-                asserts.assert_true(isinstance(ret26, cluster.Structs.DeviceLocationStruct),
-                                    "DeviceLocation should be a DeviceLocationStruct")
-                asserts.assert_equal(ret26.locationName, "", "LocationName should be an empty string")
-                asserts.assert_equal(ret26.floorNumber, -1, "FloorNumber should be -1")
-                asserts.assert_equal(ret26.areaType, None, "AreaType should be null")
-            elif not hasattr(cluster.Attributes, 'DeviceLocation'):
-                self.mark_current_step_skipped()
+        self.step(26)
+        if hasattr(cluster.Attributes, 'DeviceLocation') and await self.attribute_guard(endpoint=self.endpoint, attribute=cluster.Attributes.DeviceLocation):
+            ret26 = await self.read_single_attribute_check_success(cluster=cluster, attribute=cluster.Attributes.DeviceLocation)
+            asserts.assert_true(isinstance(ret26, cluster.Structs.DeviceLocationStruct),
+                                "DeviceLocation should be a DeviceLocationStruct")
+            asserts.assert_equal(ret26.locationName, "", "LocationName should be an empty string")
+            asserts.assert_equal(ret26.floorNumber, -1, "FloorNumber should be -1")
+            asserts.assert_equal(ret26.areaType, None, "AreaType should be null")
+        elif not hasattr(cluster.Attributes, 'DeviceLocation'):
+            self.mark_current_step_skipped()
 
         # Step 27: Write DeviceLocation with location name of 128 characters
-        if 27 in plan_step:
-            self.step(plan_step[27])
-            if hasattr(cluster.Attributes, 'DeviceLocation') and await self.attribute_guard(endpoint=self.endpoint, attribute=cluster.Attributes.DeviceLocation):
-                await self.write_single_attribute_check_success(cluster=cluster, attribute=cluster.Attributes.DeviceLocation, value=cluster.Structs.DeviceLocationStruct(locationName="location" * 16, floorNumber=200, areaType=0x0002))
-            elif not hasattr(cluster.Attributes, 'DeviceLocation'):
-                self.mark_current_step_skipped()
+        self.step(27)
+        if hasattr(cluster.Attributes, 'DeviceLocation') and await self.attribute_guard(endpoint=self.endpoint, attribute=cluster.Attributes.DeviceLocation):
+            await self.write_single_attribute_check_success(cluster=cluster, attribute=cluster.Attributes.DeviceLocation, value=cluster.Structs.DeviceLocationStruct(locationName="location" * 16, floorNumber=200, areaType=0x0002))
+        elif not hasattr(cluster.Attributes, 'DeviceLocation'):
+            self.mark_current_step_skipped()
 
         # Step 28: Validate write to DeviceLocation from test step 27
-        if 28 in plan_step:
-            self.step(plan_step[28])
-            if hasattr(cluster.Attributes, 'DeviceLocation') and await self.attribute_guard(endpoint=self.endpoint, attribute=cluster.Attributes.DeviceLocation):
-                ret28 = await self.read_single_attribute_check_success(cluster=cluster, attribute=cluster.Attributes.DeviceLocation)
-                asserts.assert_true(isinstance(ret28, cluster.Structs.DeviceLocationStruct),
-                                    "DeviceLocation should be a DeviceLocationStruct")
-                asserts.assert_equal(ret28.locationName, "location" * 16, "LocationName should be a string of 128 characters")
-                asserts.assert_equal(ret28.floorNumber, 200, "FloorNumber should be 200")
-                asserts.assert_equal(ret28.areaType, 0x0002, "AreaType should be 0x0002")
-            elif not hasattr(cluster.Attributes, 'DeviceLocation'):
-                self.mark_current_step_skipped()
+        self.step(28)
+        if hasattr(cluster.Attributes, 'DeviceLocation') and await self.attribute_guard(endpoint=self.endpoint, attribute=cluster.Attributes.DeviceLocation):
+            ret28 = await self.read_single_attribute_check_success(cluster=cluster, attribute=cluster.Attributes.DeviceLocation)
+            asserts.assert_true(isinstance(ret28, cluster.Structs.DeviceLocationStruct),
+                                "DeviceLocation should be a DeviceLocationStruct")
+            asserts.assert_equal(ret28.locationName, "location" * 16, "LocationName should be a string of 128 characters")
+            asserts.assert_equal(ret28.floorNumber, 200, "FloorNumber should be 200")
+            asserts.assert_equal(ret28.areaType, 0x0002, "AreaType should be 0x0002")
+        elif not hasattr(cluster.Attributes, 'DeviceLocation'):
+            self.mark_current_step_skipped()
 
         # Step 29: Read ConfigurationVersion
-        if 29 in plan_step:
-            self.step(plan_step[29])
-            if hasattr(cluster.Attributes, 'ConfigurationVersion') and await self.attribute_guard(endpoint=self.endpoint, attribute=cluster.Attributes.ConfigurationVersion):
-                ret29 = await self.read_single_attribute_check_success(cluster=cluster, attribute=cluster.Attributes.ConfigurationVersion)
-                asserts.assert_greater_equal(ret29, 1, "ConfigurationVersion should be greater than or equal to 1")
-                asserts.assert_less_equal(ret29, 4294967295, "ConfigurationVersion should be less than or equal to 4294967295")
-            elif not hasattr(cluster.Attributes, 'ConfigurationVersion'):
-                self.mark_current_step_skipped()
+        self.step(29)
+        if hasattr(cluster.Attributes, 'ConfigurationVersion') and await self.attribute_guard(endpoint=self.endpoint, attribute=cluster.Attributes.ConfigurationVersion):
+            ret29 = await self.read_single_attribute_check_success(cluster=cluster, attribute=cluster.Attributes.ConfigurationVersion)
+            asserts.assert_greater_equal(ret29, 1, "ConfigurationVersion should be greater than or equal to 1")
+            asserts.assert_less_equal(ret29, 4294967295, "ConfigurationVersion should be less than or equal to 4294967295")
+        elif not hasattr(cluster.Attributes, 'ConfigurationVersion'):
+            self.mark_current_step_skipped()
