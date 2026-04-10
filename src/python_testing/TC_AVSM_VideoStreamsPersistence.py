@@ -31,7 +31,7 @@
 #       --trace-to json:${TRACE_TEST_JSON}.json
 #       --trace-to perfetto:${TRACE_TEST_PERFETTO}.perfetto
 #       --endpoint 1
-#       --no-wildcard-subscription 
+#       --no-wildcard-subscription
 #     factory-reset: true
 #     quiet: true
 # === END CI TEST ARGUMENTS ===
