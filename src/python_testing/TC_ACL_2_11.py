@@ -172,12 +172,16 @@ class TC_ACL_2_11(MatterBaseTest):
 
         self.step(5)
         root_node_endpoint = 0
-        root_part_list = await dev_ctrl.ReadAttribute(dut_node_id, [(root_node_endpoint, Clusters.Descriptor.Attributes.PartsList)])
-        set_of_endpoints = set(root_part_list[root_node_endpoint]
-                               [Clusters.Descriptor][Clusters.Descriptor.Attributes.PartsList])
+        parts_list = await self.read_single_attribute_check_success(
+            cluster=Clusters.Descriptor,
+            attribute=Clusters.Descriptor.Attributes.PartsList,
+            endpoint=root_node_endpoint)
+        set_of_endpoints = set(parts_list)
         for endpoint in set_of_endpoints:
-            ret = await dev_ctrl.ReadAttribute(dut_node_id, [(endpoint, Clusters.Descriptor.Attributes.ServerList)])
-            server_list = ret[endpoint][Clusters.Descriptor][Clusters.Descriptor.Attributes.ServerList]
+            server_list = await self.read_single_attribute_check_success(
+                cluster=Clusters.Descriptor,
+                attribute=Clusters.Descriptor.Attributes.ServerList,
+                endpoint=endpoint)
             for server in server_list:
                 cluster = Clusters.ClusterObjects.ALL_CLUSTERS[server]
                 data = await dev_ctrl.ReadAttribute(dut_node_id, [(endpoint, cluster.Attributes.GeneratedCommandList),
