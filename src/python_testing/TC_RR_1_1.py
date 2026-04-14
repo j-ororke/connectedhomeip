@@ -30,7 +30,6 @@
 #       --passcode 20202021
 #       --trace-to json:${TRACE_TEST_JSON}.json
 #       --trace-to perfetto:${TRACE_TEST_PERFETTO}.perfetto
-#       --no-wildcard-subscription
 #     factory-reset: true
 #     quiet: true
 # === END CI TEST ARGUMENTS ===
@@ -83,6 +82,9 @@ def generate_vid_verification_statement(fabric_index: int) -> bytes:
 
 
 class TC_RR_1_1(MatterBaseTest):
+    # Avoid background wildcard subscription + extra ACL work during max-fabric commissioning
+    disable_wildcard_subscription = True
+
     def setup_class(self):
         super().setup_class()
         self._pseudo_random_generator = random.Random(1234)

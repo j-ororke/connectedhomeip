@@ -31,7 +31,6 @@
 #       --trace-to json:${TRACE_TEST_JSON}.json
 #       --trace-to perfetto:${TRACE_TEST_PERFETTO}.perfetto
 #       --endpoint 0
-#       --no-wildcard-subscription
 # === END CI TEST ARGUMENTS ===
 
 import logging
@@ -51,6 +50,8 @@ log = logging.getLogger(__name__)
 
 
 class TC_ACL_2_6(MatterBaseTest):
+    disable_wildcard_subscription = True
+
     async def get_latest_event_number(self, acec_event: Clusters.AccessControl.Events.AccessControlEntryChanged) -> int:
         event_path = [(self.matter_test_config.endpoint, acec_event, 1)]
         events = await self.default_controller.ReadEvent(nodeId=self.dut_node_id, events=event_path)

@@ -28,7 +28,6 @@
 #       --passcode 20202021
 #       --trace-to json:${TRACE_TEST_JSON}.json
 #       --trace-to perfetto:${TRACE_TEST_PERFETTO}.perfetto
-#       --no-wildcard-subscription
 #   run2:
 #     app: ${ALL_CLUSTERS_APP}
 #     factory-reset: false
@@ -38,7 +37,6 @@
 #       --storage-path admin_storage.json
 #       --trace-to json:${TRACE_TEST_JSON}.json
 #       --trace-to perfetto:${TRACE_TEST_PERFETTO}.perfetto
-#       --no-wildcard-subscription
 # === END CI TEST ARGUMENTS ===
 
 
@@ -57,6 +55,7 @@ CHIP_ERROR_CODES = {
 
 
 class TC_SC_3_4(MatterBaseTest):
+    disable_wildcard_subscription = True
 
     def desc_TC_SC_3_4(self) -> str:
         return "[TC-SC-3.4] CASE Error Handling [DUT_Responder] "

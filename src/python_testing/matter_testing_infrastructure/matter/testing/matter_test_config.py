@@ -98,10 +98,9 @@ class MatterTestConfig:
     legacy: bool = False
 
     # When True, skip the background wildcard attribute subscription that is normally
-    # started at the beginning of each test.  Tests that directly manipulate the ACL
-    # (e.g. TC_ACL_2_6, TC_ACL_2_4) should set this flag via --no-wildcard-subscription so the
-    # framework does not add a secondary-controller ACL entry that would interfere
-    # with the expected ACL event sequence.
+    # started at the beginning of each test.  Prefer ``disable_wildcard_subscription = True``
+    # on the test class (see MatterBaseTest) so certification runs do not require this CLI flag.
+    # ``--no-wildcard-subscription`` remains for backward compatibility and local overrides.
     no_wildcard_subscription: bool = False
 
     # Restart flag file for rebooting the DUT during test runs

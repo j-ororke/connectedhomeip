@@ -985,8 +985,8 @@ def parse_matter_test_args(argv: Optional[List[str]] = None):
     basic_group.add_argument("--no-wildcard-subscription", action="store_true", default=False,
                              dest="no_wildcard_subscription",
                              help="Skip the background wildcard attribute subscription that is normally started "
-                                  "before each test.  Use for tests that directly manipulate the ACL and would "
-                                  "be disrupted by the framework adding a secondary-controller admin entry.")
+                                  "before each test.  Prefer setting disable_wildcard_subscription = True on the "
+                                  "test class (MatterBaseTest) for certification; this flag overrides for ad-hoc runs.")
 
     commission_group = parser.add_argument_group(title="Commissioning", description="Arguments to commission a node")
 

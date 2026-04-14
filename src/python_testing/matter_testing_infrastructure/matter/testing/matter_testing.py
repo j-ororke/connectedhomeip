@@ -172,6 +172,18 @@ class SetupParameters:
 
 
 class MatterBaseTest(base_test.BaseTestClass):
+    """Base class for Matter Python tests.
+
+    Wildcard subscription (see ``setup_test``):
+
+    * Set class attribute ``disable_wildcard_subscription = True`` to skip the background
+      wildcard subscription and its ACL side effects — same effect as ``--no-wildcard-subscription``.
+      Prefer this for certification so the test script does not rely on extra runner flags.
+    * When a wildcard subscription is active, ``read_single_attribute_check_success`` compares
+      each read to the subscription cache unless ``verify_wildcard_subscription=False`` is passed,
+      or the class sets ``default_verify_wildcard_subscription = False``.
+    """
+
     def __init__(self, *args):
         super().__init__(*args)
 
@@ -299,6 +311,19 @@ class MatterBaseTest(base_test.BaseTestClass):
             for attr_id, attr in cluster.attributes.items()
             if attr.changes_omitted or attr.quieter_reporting
         )
+
+    def _wildcard_subscription_disabled(self) -> bool:
+        """True if this run must not start the background wildcard subscription."""
+        return (
+            self.matter_test_config.no_wildcard_subscription
+            or getattr(self, "disable_wildcard_subscription", False)
+        )
+
+    def _effective_verify_wildcard_subscription(self, verify_wildcard_subscription: Optional[bool]) -> bool:
+        """Resolve whether to compare a read against the wildcard subscription cache."""
+        if verify_wildcard_subscription is not None:
+            return verify_wildcard_subscription
+        return bool(getattr(type(self), "default_verify_wildcard_subscription", True))
 
     def _start_wildcard_subscription(self) -> None:
         """Start a background wildcard attribute subscription on the DUT.
@@ -543,11 +568,12 @@ class MatterBaseTest(base_test.BaseTestClass):
         if self.runner_hook and not self.is_commissioning:
             # Start the background wildcard subscription only for real device tests or cert tests
             # (commissioning_method is set) and unless the test has opted out via
-            # --no-wildcard-subscription (e.g. tests that directly manipulate the ACL or tests that count the TH entries).
+            # ``--no-wildcard-subscription`` or ``disable_wildcard_subscription = True`` on the
+            # test class (e.g. tests that directly manipulate the ACL or tests that count the TH entries).
             # Unit tests in test_testing/ run without --commissioning-method, so
             # commissioning_method is None there — skipping avoids trying to connect
             # to a non-existent DUT (which would hang ~30 s per test and blow the CI timeout of 60mins).
-            if (not self.matter_test_config.no_wildcard_subscription and
+            if (not self._wildcard_subscription_disabled() and
                     self.matter_test_config.commissioning_method is not None):
                 self._start_wildcard_subscription()
             test_name = self.current_test_info.name
@@ -574,7 +600,7 @@ class MatterBaseTest(base_test.BaseTestClass):
         after any custom teardown code.
         """
         _config = getattr(self, 'matter_test_config', None)
-        if _config is None or not _config.no_wildcard_subscription:
+        if _config is None or not self._wildcard_subscription_disabled():
             if getattr(self, 'wildcard_subscription_handler', None) is not None:
                 try:
                     self.wildcard_subscription_handler.shutdown()
@@ -1262,7 +1288,7 @@ class MatterBaseTest(base_test.BaseTestClass):
 
     async def read_single_attribute_check_success(
             self, cluster: ClusterObjects.Cluster, attribute: Type[ClusterObjects.ClusterAttributeDescriptor],
-            dev_ctrl: Optional[ChipDeviceCtrl.ChipDeviceController] = None, node_id: Optional[int] = None, endpoint: Optional[int] = None, fabric_filtered: bool = True, assert_on_error: bool = True, test_name: str = "", payloadCapability: int = ChipDeviceCtrl.TransportPayloadCapability.MRP_PAYLOAD) -> object:
+            dev_ctrl: Optional[ChipDeviceCtrl.ChipDeviceController] = None, node_id: Optional[int] = None, endpoint: Optional[int] = None, fabric_filtered: bool = True, assert_on_error: bool = True, test_name: str = "", payloadCapability: int = ChipDeviceCtrl.TransportPayloadCapability.MRP_PAYLOAD, verify_wildcard_subscription: Optional[bool] = None) -> object:
         if dev_ctrl is None:
             dev_ctrl = self.default_controller
         if node_id is None:
@@ -1294,7 +1320,9 @@ class MatterBaseTest(base_test.BaseTestClass):
         # surfacing DUT bugs where an attribute changes without a subscription report.
         # Skipped automatically for C/Q-quality attributes, missing subscriptions,
         # cross-fabric reads, or when the subscription controller's ACL was removed.
-        if read_ok and node_id == self.dut_node_id:
+        # Pass verify_wildcard_subscription=False (or set default_verify_wildcard_subscription on
+        # the test class) to skip this check while still allowing a wildcard subscription.
+        if read_ok and node_id == self.dut_node_id and self._effective_verify_wildcard_subscription(verify_wildcard_subscription):
             await self.verify_attribute_subscription_value(
                 attribute=attribute,
                 read_value=attr_ret,

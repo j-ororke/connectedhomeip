@@ -31,7 +31,6 @@
 #       --trace-to json:${TRACE_TEST_JSON}.json
 #       --trace-to perfetto:${TRACE_TEST_PERFETTO}.perfetto
 #       --endpoint 1
-#       --no-wildcard-subscription
 #     factory-reset: true
 #     quiet: true
 # === END CI TEST ARGUMENTS ===
@@ -50,6 +49,8 @@ log = logging.getLogger(__name__)
 
 
 class TC_AVSM_VideoStreamsPersistence(MatterBaseTest):
+    disable_wildcard_subscription = True
+
     def desc_TC_AVSM_VideoStreamsPersistence(self) -> str:
         return "[TC-AVSM-VideoStreamsPersistence] Validate Video Streams Persistence functionality with Server as DUT"
 
