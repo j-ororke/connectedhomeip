@@ -160,9 +160,6 @@ class TC_ECOINFO_2_2(MatterBaseTest):
 
     @async_test_body
     async def test_TC_ECOINFO_2_2(self):
-        dev_ctrl = self.default_controller
-        dut_node_id = self.dut_node_id
-
         # Commissioning - done
         self.step(0)
 
@@ -170,8 +167,6 @@ class TC_ECOINFO_2_2(MatterBaseTest):
         self.step("1a")
         ROOT_NODE_ENDPOINT = 0
         parts_list_1a = await self.read_single_attribute_check_success(
-            dev_ctrl=dev_ctrl,
-            node_id=dut_node_id,
             cluster=Clusters.Descriptor,
             attribute=Clusters.Descriptor.Attributes.PartsList,
             endpoint=ROOT_NODE_ENDPOINT)
@@ -219,8 +214,6 @@ class TC_ECOINFO_2_2(MatterBaseTest):
         self.step("2c")
         newly_added_endpoint = list(unique_endpoints_set)[0]
         await self.read_single_attribute_check_success(
-            dev_ctrl=dev_ctrl,
-            node_id=dut_node_id,
             endpoint=newly_added_endpoint,
             cluster=Clusters.EcosystemInformation,
             attribute=Clusters.EcosystemInformation.Attributes.DeviceDirectory,
@@ -228,8 +221,6 @@ class TC_ECOINFO_2_2(MatterBaseTest):
 
         self.step("2d")
         await self.read_single_attribute_check_success(
-            dev_ctrl=dev_ctrl,
-            node_id=dut_node_id,
             endpoint=newly_added_endpoint,
             cluster=Clusters.EcosystemInformation,
             attribute=Clusters.EcosystemInformation.Attributes.LocationDirectory,
@@ -263,8 +254,6 @@ class TC_ECOINFO_2_2(MatterBaseTest):
         self.step("3c")
         newly_added_endpoint = list(unique_endpoints_set)[0]
         await self.read_single_attribute_expect_error(
-            dev_ctrl=dev_ctrl,
-            node_id=dut_node_id,
             error=Status.UnsupportedEndpoint,
             endpoint=newly_added_endpoint,
             cluster=Clusters.EcosystemInformation,
@@ -273,8 +262,6 @@ class TC_ECOINFO_2_2(MatterBaseTest):
 
         self.step("3d")
         await self.read_single_attribute_expect_error(
-            dev_ctrl=dev_ctrl,
-            node_id=dut_node_id,
             error=Status.UnsupportedEndpoint,
             endpoint=newly_added_endpoint,
             cluster=Clusters.EcosystemInformation,
