@@ -234,20 +234,27 @@ class MatterBaseTest(base_test.BaseTestClass):
         # where the read is deferred until the first guard function call that requires global attributes.
         self.stored_global_wildcard = None
 
-        # Pre-build the set of (cluster_id, attr_id) pairs whose attributes carry the
-        # Changes Omitted (C) or Quieter Reporting (Q) spec quality flags.  These attributes
-        # are excluded from the background wildcard subscription started in setup_test so that
-        # subscription-verification logic does not flag them as missing or stale.
-        # The XML parsing is done once per class here (not per test) because it is expensive.
+        # Populated by _start_wildcard_subscription (called from setup_test) with the
+        # WildcardAttributeSubscriptionHandler that drives subscription-cache verification.
+        # Shut down in teardown_test.
         self.wildcard_subscription_handler = None
+
         # Secondary controller for the background wildcard subscription.  A separate node_id
         # is used so that keepSubscriptions=False on default_controller does not cancel this
         # background subscription (they use different CASE sessions).
         # Created lazily in _start_wildcard_subscription; shut down in teardown_class.
         self.subscription_controller = None
-        # ACL snapshot taken immediately before the subscription controller's admin entry is
-        # added.  Restored in teardown_test so every test sees a clean, unmodified ACL.
+
+        # ACL snapshot taken immediately before the subscription controller's Administer
+        # entry is appended.  Restored in teardown_test so every test sees a clean,
+        # unmodified ACL regardless of what the test did to it.
         self._pre_subscription_acl = None
+
+        # (cluster_id, attr_id) pairs excluded from the background wildcard subscription:
+        # attributes carrying the Changes Omitted (C) or Quieter Reporting (Q) spec quality
+        # flags, unioned with _CQ_EXPECTED_BUT_NOT_YET_MARKED for attributes that should be C
+        # in practice but are not yet flagged in the data-model XML.  Built once per class
+        # here (not per test) because the underlying XML parse is expensive.
         self._cq_excluded_attr_ids: frozenset[tuple[int, int]] = self._build_cq_excluded_ids()
 
     def teardown_class(self):
@@ -282,6 +289,26 @@ class MatterBaseTest(base_test.BaseTestClass):
         self._log_execution_parameters_summary()
         super().teardown_class()
 
+    # (cluster_id, attribute_id) pairs for attributes that are expected to carry the
+    # Changes Omitted (C) quality but are not yet marked as such in the data-model XML.
+    # Entries here are treated as if the XML already marked them C so that the background
+    # wildcard subscription does not flag them as missing or stale reports.
+    #
+    # Each entry MUST cite the tracking issue that will resolve the mismatch, and the
+    # entry should be removed as soon as the XML/spec is updated and the DM bundle in
+    # data_model/ is regenerated.
+    #
+    # - AccessControl (0x001F).AuxiliaryACL (0x0007):
+    #     Changes omitted in practice; tracked by project-chip/connectedhomeip#71428.
+    # - SoftwareDiagnostics (0x0034).CurrentHeapFree (0x0001) and CurrentHeapUsed (0x0002):
+    #     Volatile counters that report too frequently to be useful in subscriptions;
+    #     tracked by spec issue CHIP-Specifications/connectedhomeip-spec#12899.
+    _CQ_EXPECTED_BUT_NOT_YET_MARKED: frozenset[tuple[int, int]] = frozenset({
+        (0x0000001F, 0x00000007),  # AccessControl.AuxiliaryACL            -- chip#71428
+        (0x00000034, 0x00000001),  # SoftwareDiagnostics.CurrentHeapFree   -- spec#12899
+        (0x00000034, 0x00000002),  # SoftwareDiagnostics.CurrentHeapUsed   -- spec#12899
+    })
+
     @staticmethod
     def _build_cq_excluded_ids(
             dm_dir: PrebuiltDataModelDirectory = PrebuiltDataModelDirectory.k1_6
@@ -290,7 +317,9 @@ class MatterBaseTest(base_test.BaseTestClass):
 
         Parses the Matter spec data-model XML for `dm_dir` and collects every attribute
         that carries the Changes Omitted (changeOmitted="true") or Quieter Reporting
-        (quieterReporting="true") quality flag.
+        (quieterReporting="true") quality flag, then unions in
+        ``_CQ_EXPECTED_BUT_NOT_YET_MARKED`` for attributes that should be C in practice
+        but are not yet flagged in the XML (see that constant for the tracking issues).
 
         These attributes are excluded from the background wildcard subscription so that
         subscription-verification logic does not flag them as unexpectedly silent.
@@ -303,14 +332,15 @@ class MatterBaseTest(base_test.BaseTestClass):
             xml_clusters, _ = build_xml_clusters(dm_dir)
         except SpecParsingException as e:
             LOGGER.warning("Could not build XML clusters for C/Q exclusion set: %s", e)
-            return frozenset()
+            return MatterBaseTest._CQ_EXPECTED_BUT_NOT_YET_MARKED
 
-        return frozenset(
+        xml_ids = frozenset(
             (int(cluster_id), int(attr_id))
             for cluster_id, cluster in xml_clusters.items()
             for attr_id, attr in cluster.attributes.items()
             if attr.changes_omitted or attr.quieter_reporting
         )
+        return xml_ids | MatterBaseTest._CQ_EXPECTED_BUT_NOT_YET_MARKED
 
     def _wildcard_subscription_disabled(self) -> bool:
         """True if this run must not start the background wildcard subscription."""
@@ -418,10 +448,8 @@ class MatterBaseTest(base_test.BaseTestClass):
             self.event_loop.run_until_complete(_start())
             self.wildcard_subscription_handler = handler
             LOGGER.info(
-                "[MatterBaseTest] Wildcard subscription started (%d C/Q attrs excluded, "
-                "%d attrs cached from priming read)",
-                len(self._cq_excluded_attr_ids),
-                len(handler.latest_values),
+                f"[MatterBaseTest] Wildcard subscription started ({len(self._cq_excluded_attr_ids)} C/Q attrs excluded, "
+                f"{len(handler.latest_values)} attrs cached from priming read)",
             )
         except Exception as e:
             LOGGER.warning("[MatterBaseTest] Could not start wildcard subscription: %s", e)
@@ -609,9 +637,10 @@ class MatterBaseTest(base_test.BaseTestClass):
                 self.wildcard_subscription_handler = None
             LOGGER.info("Wildcard subscription shut down")
 
-            # Restore ACL to the snapshot taken before the subscription controller entry was
-            # added.  Runs unconditionally so the DUT is always left in the original state
-            # regardless of what the test did to the ACL.
+            # Restore ACL to the snapshot taken before the subscription controller entry
+            # was added.  Runs whenever a snapshot exists (i.e. _start_wildcard_subscription
+            # succeeded for this class) so the DUT is left in the original state regardless
+            # of what the test did to the ACL during the test.
             if getattr(self, '_pre_subscription_acl', None) is not None:
                 async def _restore_acl():
                     try:
@@ -1318,10 +1347,15 @@ class MatterBaseTest(base_test.BaseTestClass):
         # Compare the read value against the background wildcard subscription cache.
         # Uses assert_on_error=True so a confirmed subscription mismatch fails the test,
         # surfacing DUT bugs where an attribute changes without a subscription report.
-        # Skipped automatically for C/Q-quality attributes, missing subscriptions,
-        # cross-fabric reads, or when the subscription controller's ACL was removed.
-        # Pass verify_wildcard_subscription=False (or set default_verify_wildcard_subscription on
-        # the test class) to skip this check while still allowing a wildcard subscription.
+        #
+        # Gated here so verification only runs for successful reads that target this DUT and
+        # when the test (or class) has not opted out.  Further skip conditions (C/Q
+        # attributes, no active subscription, cross-fabric reads, and the ACL-removed
+        # fallback) are evaluated inside verify_attribute_subscription_value.
+        #
+        # Pass verify_wildcard_subscription=False (or set default_verify_wildcard_subscription
+        # on the test class) to skip this check while still allowing a wildcard subscription
+        # to run in the background.
         if read_ok and node_id == self.dut_node_id and self._effective_verify_wildcard_subscription(verify_wildcard_subscription):
             await self.verify_attribute_subscription_value(
                 attribute=attribute,
