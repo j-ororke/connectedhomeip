@@ -324,7 +324,7 @@ void Instance::HandleSetCookingParameters(HandlerContext & ctx, const Commands::
         status = mDelegate->HandleSetCookingParametersCallback(reqCookMode, reqCookTimeSec, reqStartAfterSetting,
                                                                MakeOptional(reqPowerSettingNum), NullOptional);
 
-        if (status == Status::Success && oldPowerSettingNum != mDelegate->GetPowerSettingNum())
+        if (oldPowerSettingNum != mDelegate->GetPowerSettingNum())
         {
             MatterReportingAttributeChangeCallback(mEndpointId, mClusterId, Attributes::PowerSetting::Id);
         }
