@@ -300,13 +300,14 @@ class MatterBaseTest(base_test.BaseTestClass):
     #
     # - AccessControl (0x001F).AuxiliaryACL (0x0007):
     #     Changes omitted in practice; tracked by project-chip/connectedhomeip#71428.
-    # - SoftwareDiagnostics (0x0034).CurrentHeapFree (0x0001) and CurrentHeapUsed (0x0002):
+    # - SoftwareDiagnostics (0x0034).CurrentHeapFree (0x0001) and CurrentHeapUsed (0x0002) and CurrentHeapHighWatermark (0x0003):
     #     Volatile counters that report too frequently to be useful in subscriptions;
     #     tracked by spec issue CHIP-Specifications/connectedhomeip-spec#12899.
     _CQ_EXPECTED_BUT_NOT_YET_MARKED: frozenset[tuple[int, int]] = frozenset({
-        (0x0000001F, 0x00000007),  # AccessControl.AuxiliaryACL            -- chip#71428
-        (0x00000034, 0x00000001),  # SoftwareDiagnostics.CurrentHeapFree   -- spec#12899
-        (0x00000034, 0x00000002),  # SoftwareDiagnostics.CurrentHeapUsed   -- spec#12899
+        (0x0000001F, 0x00000007),  # AccessControl.AuxiliaryACL                     -- chip#71428
+        (0x00000034, 0x00000001),  # SoftwareDiagnostics.CurrentHeapFree            -- spec#12899
+        (0x00000034, 0x00000002),  # SoftwareDiagnostics.CurrentHeapUsed            -- spec#12899
+        (0x00000034, 0x00000003),  # SoftwareDiagnostics.CurrentHeapHighWatermark   -- spec#12899
     })
 
     @staticmethod
@@ -1276,7 +1277,7 @@ class MatterBaseTest(base_test.BaseTestClass):
             raise  # Help mypy understand this never returns
 
     async def read_single_attribute(
-            self, dev_ctrl: ChipDeviceCtrl.ChipDeviceController, node_id: int, endpoint: int, attribute: Type[ClusterObjects.ClusterAttributeDescriptor], fabricFiltered: bool = True) -> object:
+            self, dev_ctrl: ChipDeviceCtrl.ChipDeviceController, node_id: int, endpoint: int, attribute: Type[ClusterObjects.ClusterAttributeDescriptor], fabricFiltered: bool = True, verify_wildcard_subscription: Optional[bool] = None) -> object:
         """Read a single attribute value from a device.
 
         Args:
@@ -1285,18 +1286,52 @@ class MatterBaseTest(base_test.BaseTestClass):
             endpoint: Endpoint ID where the attribute resides.
             attribute: The attribute to read.
             fabricFiltered: Whether to apply fabric filtering.
+            verify_wildcard_subscription: Per-call override for the background
+                wildcard-subscription verification.  ``None`` (default) defers to the
+                class-level ``default_verify_wildcard_subscription``; ``False`` skips
+                the check for this read only.
 
         Returns:
             The attribute value.
         """
         result = await dev_ctrl.ReadAttribute(node_id, [(endpoint, attribute)], fabricFiltered=fabricFiltered)
         data = result[endpoint]
-        return list(data.values())[0][attribute]
+        attr_ret = list(data.values())[0][attribute]
+
+        # Route this read through the same subscription-cache check used by
+        # read_single_attribute_check_success so that any test calling this
+        # lower-level helper still benefits from wildcard-subscription verification.
+        # Downstream skip conditions (C/Q attributes, no active subscription,
+        # cross-fabric reads, ACL-removed fallback) are evaluated inside
+        # verify_attribute_subscription_value.
+        read_ok = attr_ret is not None and not isinstance(attr_ret, Clusters.Attribute.ValueDecodeFailure)
+        if read_ok and node_id == self.dut_node_id and self._effective_verify_wildcard_subscription(verify_wildcard_subscription):
+            await self.verify_attribute_subscription_value(
+                attribute=attribute,
+                read_value=attr_ret,
+                endpoint_id=endpoint,
+                assert_on_error=True,
+                dev_ctrl=dev_ctrl,
+            )
+
+        return attr_ret
 
     async def read_single_attribute_all_endpoints(
             self, cluster: ClusterObjects.Cluster, attribute: Type[ClusterObjects.ClusterAttributeDescriptor],
-            dev_ctrl: Optional[ChipDeviceCtrl.ChipDeviceController] = None, node_id: Optional[int] = None):
+            dev_ctrl: Optional[ChipDeviceCtrl.ChipDeviceController] = None, node_id: Optional[int] = None,
+            verify_wildcard_subscription: Optional[bool] = None):
         """Reads a single attribute of a specified cluster across all endpoints.
+
+        Args:
+            cluster: The cluster object the attribute belongs to.
+            attribute: The attribute to read.
+            dev_ctrl: Device controller to use for the read operation.  Defaults to
+                ``self.default_controller``.
+            node_id: Node ID of the target device.  Defaults to ``self.dut_node_id``.
+            verify_wildcard_subscription: Per-call override for the background
+                wildcard-subscription verification.  ``None`` (default) defers to the
+                class-level ``default_verify_wildcard_subscription``; ``False`` skips
+                the check for this read only.
 
         Returns:
             dict: endpoint to attribute value
@@ -1313,6 +1348,23 @@ class MatterBaseTest(base_test.BaseTestClass):
         for endpoint in read_response:
             attr_ret = read_response[endpoint][cluster][attribute]
             attrs[endpoint] = attr_ret
+
+        # Verify each endpoint's value against the background wildcard-subscription
+        # cache, mirroring the single-endpoint path in read_single_attribute_check_success.
+        # Skip individual endpoints whose read failed (None / ValueDecodeFailure); the
+        # remaining skip conditions are evaluated inside verify_attribute_subscription_value.
+        if node_id == self.dut_node_id and self._effective_verify_wildcard_subscription(verify_wildcard_subscription):
+            for endpoint, value in attrs.items():
+                if value is None or isinstance(value, Clusters.Attribute.ValueDecodeFailure):
+                    continue
+                await self.verify_attribute_subscription_value(
+                    attribute=attribute,
+                    read_value=value,
+                    endpoint_id=endpoint,
+                    assert_on_error=True,
+                    dev_ctrl=dev_ctrl,
+                )
+
         return attrs
 
     async def read_single_attribute_check_success(
@@ -1378,7 +1430,14 @@ class MatterBaseTest(base_test.BaseTestClass):
             dev_ctrl: Optional[ChipDeviceCtrl.ChipDeviceController] = None) -> bool:
         """Compare a freshly-read attribute value against the background wildcard subscription cache.
 
-        Call this immediately after read_single_attribute_check_success() to confirm that
+        Called automatically from the base-class read helpers so any single-attribute read
+        performed through the test harness is validated against the background subscription:
+
+        - ``read_single_attribute_check_success()``
+        - ``read_single_attribute()``
+        - ``read_single_attribute_all_endpoints()`` (verifies each endpoint)
+
+        Direct callers may also invoke this method after an ad-hoc read to confirm that
         the device is reporting the same value through its subscription as it returns on a
         direct read.  A mismatch means the subscription is either stale or not firing.
 
