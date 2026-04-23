@@ -32,7 +32,6 @@
 #       --trace-to json:${TRACE_TEST_JSON}.json
 #       --trace-to perfetto:${TRACE_TEST_PERFETTO}.perfetto
 #       --PICS src/app/tests/suites/certification/ci-pics-values
-#       --endpoint 1
 #     factory-reset: true
 #     quiet: true
 # === END CI TEST ARGUMENTS ===
@@ -46,7 +45,7 @@ import matter.clusters as Clusters
 from matter.interaction_model import InteractionModelError, Status
 from matter.testing.basic_composition import BasicCompositionTests
 from matter.testing.conformance import ConformanceException
-from matter.testing.decorators import has_cluster, run_if_endpoint_matches
+from matter.testing.decorators import async_test_body
 from matter.testing.runner import TestStep, default_matter_test_main
 from matter.testing.spec_parsing import dm_from_spec_version
 
@@ -70,10 +69,11 @@ class TC_IDM_5_2(IDMBaseTest, BasicCompositionTests):
                      "If the device being certified is Matter release 1.4 or later, timeout error should be returned. If the device being certified is Matter release 1.3 or earlier, verify the DUT sends back a Status response with either timeout or unsupported access error."),
         ]
 
-    @run_if_endpoint_matches(has_cluster(Clusters.LevelControl))
+    @async_test_body
     async def test_TC_IDM_5_2(self):
+        endpoint = self.ROOT_NODE_ENDPOINT_ID
+
         self.step(0)
-        self.endpoint = self.get_endpoint()
 
         # Test Setup with robust endpoint/cluster discovery
         await self.setup_class_helper(allow_pase=False)
@@ -82,8 +82,8 @@ class TC_IDM_5_2(IDMBaseTest, BasicCompositionTests):
         self.step(1)
         await self.default_controller.SendCommand(
             nodeId=self.dut_node_id,
-            endpoint=self.endpoint,
-            payload=Clusters.LevelControl.Commands.MoveToLevel(19),
+            endpoint=endpoint,
+            payload=Clusters.GeneralCommissioning.Commands.ArmFailSafe(expiryLengthSeconds=0, breadcrumb=0),
             timedRequestTimeoutMs=200,
         )
 
@@ -91,10 +91,16 @@ class TC_IDM_5_2(IDMBaseTest, BasicCompositionTests):
         # waits for status response, then sends Write Request
         TIMED_REQUEST_TIMEOUT_MS = 500
         self.step(2)
-        expected_value = 21
+        # Preserve the original NodeLabel so the test can restore it at the end.
+        original_node_label = await self.read_single_attribute_check_success(
+            endpoint=endpoint,
+            cluster=Clusters.BasicInformation,
+            attribute=Clusters.BasicInformation.Attributes.NodeLabel,
+        )
+        expected_value = "IDM_5_2_Step2"
         write_result = await self.default_controller.WriteAttribute(
             self.dut_node_id,
-            attributes=[(self.endpoint, Clusters.LevelControl.Attributes.OnLevel(expected_value))],
+            attributes=[(endpoint, Clusters.BasicInformation.Attributes.NodeLabel(expected_value))],
             timedRequestTimeoutMs=TIMED_REQUEST_TIMEOUT_MS
         )
 
@@ -103,22 +109,23 @@ class TC_IDM_5_2(IDMBaseTest, BasicCompositionTests):
                              f"Step 2: Timed write should succeed, got {write_result[0].Status}")
 
         # Read back to verify the write was performed
-        read_result = await self.default_controller.ReadAttribute(
-            self.dut_node_id,
-            [(self.endpoint, Clusters.LevelControl.Attributes.OnLevel)]
+        new_value = await self.read_single_attribute_check_success(
+            endpoint=endpoint,
+            cluster=Clusters.BasicInformation,
+            attribute=Clusters.BasicInformation.Attributes.NodeLabel,
         )
-
-        new_value = read_result[self.endpoint][Clusters.LevelControl][Clusters.LevelControl.Attributes.OnLevel]
         asserts.assert_equal(new_value, expected_value,
                              f"Step 2: Read back value after timed write should be {expected_value}, got {new_value}")
 
         # Step 3: TH sends a Timed Request Message (Timed Invoke Transaction) with timeout,
-        # waits for status response, waits 5 seconds (timer expired), then sends Invoke Request
+        # waits for status response, waits past the timeout (timer expired), then sends Invoke Request
         # BasicInformation.SpecificationVersion is encoded as 0xMMNN0000
         # (e.g. Matter 1.4 -> 0x01040000, Matter 1.6 -> 0x01060000).
         SPEC_VERSION_1_4 = 0x01040000
         self.step(3)
-        spec_version = await self.read_single_attribute_check_success(endpoint=0, cluster=Clusters.BasicInformation, attribute=Clusters.BasicInformation.Attributes.SpecificationVersion)
+        spec_version = await self.read_single_attribute_check_success(
+            endpoint=endpoint, cluster=Clusters.BasicInformation,
+            attribute=Clusters.BasicInformation.Attributes.SpecificationVersion)
         try:
             dm_from_spec_version(spec_version)
         except ConformanceException:
@@ -126,8 +133,8 @@ class TC_IDM_5_2(IDMBaseTest, BasicCompositionTests):
         try:
             await self.default_controller.SendCommand(
                 nodeId=self.dut_node_id,
-                endpoint=self.endpoint,
-                payload=Clusters.LevelControl.Commands.MoveToLevel(23),
+                endpoint=endpoint,
+                payload=Clusters.GeneralCommissioning.Commands.ArmFailSafe(expiryLengthSeconds=0, breadcrumb=0),
                 timedRequestTimeoutMs=TIMED_REQUEST_TIMEOUT_MS,
                 busyWaitMs=TIMED_REQUEST_TIMEOUT_MS * 2  # Wait longer than timeout to trigger TIMEOUT error
             )
@@ -141,12 +148,12 @@ class TC_IDM_5_2(IDMBaseTest, BasicCompositionTests):
                                   f"SendCommand should return TIMEOUT or UNSUPPORTED_ACCESS, got {e.status}")
 
         # Step 4: TH sends a Timed Request Message (Timed Write Transaction) with timeout,
-        # waits for status response, waits 5 seconds (timer expired), then sends Write Request
+        # waits for status response, waits past the timeout (timer expired), then sends Write Request
         self.step(4)
         try:
-            write_result = await self.default_controller.WriteAttribute(
+            await self.default_controller.WriteAttribute(
                 self.dut_node_id,
-                attributes=[(self.endpoint, Clusters.LevelControl.Attributes.OnLevel(25))],
+                attributes=[(endpoint, Clusters.BasicInformation.Attributes.NodeLabel("IDM_5_2_Step4"))],
                 timedRequestTimeoutMs=TIMED_REQUEST_TIMEOUT_MS,
                 busyWaitMs=TIMED_REQUEST_TIMEOUT_MS * 2  # Wait longer than timeout to trigger TIMEOUT error
             )
@@ -158,6 +165,12 @@ class TC_IDM_5_2(IDMBaseTest, BasicCompositionTests):
             else:  # Matter release 1.3 or earlier
                 asserts.assert_in(e.status, [Status.Timeout, Status.UnsupportedAccess],
                                   f"WriteAttribute should return TIMEOUT or UNSUPPORTED_ACCESS, got {e.status}")
+
+        # Restore NodeLabel so the test leaves the DUT in its original state.
+        await self.default_controller.WriteAttribute(
+            self.dut_node_id,
+            attributes=[(endpoint, Clusters.BasicInformation.Attributes.NodeLabel(original_node_label))],
+        )
 
 
 if __name__ == "__main__":
