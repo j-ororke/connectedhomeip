@@ -21,6 +21,7 @@ Support module for IDM (Interaction Data Model) test modules containing shared f
 import copy
 import inspect
 import logging
+from dataclasses import dataclass
 from typing import Any, Optional
 
 from mobly import asserts
@@ -38,6 +39,26 @@ from matter.testing.spec_parsing import ConstraintReference, Constraints
 from matter.tlv import uint
 
 log = logging.getLogger(__name__)
+
+
+@dataclass
+class WritableAttributeInfo:
+    """Describes a single writable attribute discovered on the DUT.
+
+    Aggregates the cluster/attribute identity, the generated Python classes
+    used to read/write it, and the spec-parsed constraint metadata needed to
+    synthesize out-of-bounds test values.
+    """
+    endpoint_id: int
+    cluster_id: int
+    cluster_name: str
+    attribute_id: int
+    attribute_name: str
+    attribute: type[ClusterObjects.ClusterAttributeDescriptor]
+    cluster_class: type[ClusterObjects.Cluster]
+    datatype: str
+    constraints: Optional[Constraints]
+
 
 # ============================================================================
 # Module-Level Utility Functions
@@ -394,9 +415,9 @@ class IDMBaseTest(MatterBaseTest):
 
         return ref_value if isinstance(ref_value, (int, float)) else None
 
-    def generate_constraint_violation(self, attr_info: dict, constraints: Constraints):
+    def generate_constraint_violation(self, attr_info: WritableAttributeInfo, constraints: Constraints):
         """Generate a test value that violates the given constraints."""
-        datatype = attr_info['datatype']
+        datatype = attr_info.datatype
 
         # String constraints
         if 'string' in datatype or 'octstr' in datatype:
@@ -421,30 +442,30 @@ class IDMBaseTest(MatterBaseTest):
 
         return None
 
-    async def check_attribute_constraint(self, attr_info: dict, constraints: Constraints) -> bool:
+    async def check_attribute_constraint(self, attr_info: WritableAttributeInfo, constraints: Constraints) -> bool:
         """Test a single attribute's constraint. Returns True if test passed, False otherwise."""
         # Resolve dynamic constraints if present
         if constraints.min_value_ref or constraints.max_value_ref or constraints.min_count_ref or constraints.max_count_ref:
-            cluster_class = attr_info['cluster_class']
+            cluster_class = attr_info.cluster_class
 
             if constraints.min_value_ref:
                 constraints.min_value = await self.resolve_dynamic_constraint(
-                    cluster_class, attr_info['endpoint_id'], constraints.min_value_ref
+                    cluster_class, attr_info.endpoint_id, constraints.min_value_ref
                 )
 
             if constraints.max_value_ref:
                 constraints.max_value = await self.resolve_dynamic_constraint(
-                    cluster_class, attr_info['endpoint_id'], constraints.max_value_ref
+                    cluster_class, attr_info.endpoint_id, constraints.max_value_ref
                 )
 
             if constraints.min_count_ref:
                 constraints.min_count = await self.resolve_dynamic_constraint(
-                    cluster_class, attr_info['endpoint_id'], constraints.min_count_ref
+                    cluster_class, attr_info.endpoint_id, constraints.min_count_ref
                 )
 
             if constraints.max_count_ref:
                 constraints.max_count = await self.resolve_dynamic_constraint(
-                    cluster_class, attr_info['endpoint_id'], constraints.max_count_ref
+                    cluster_class, attr_info.endpoint_id, constraints.max_count_ref
                 )
 
         # Generate constraint violation
@@ -454,37 +475,37 @@ class IDMBaseTest(MatterBaseTest):
 
         # Read original value
         original_value = await self.read_single_attribute_check_success(
-            endpoint=attr_info['endpoint_id'],
-            cluster=attr_info['cluster_class'],
-            attribute=attr_info['attribute']
+            endpoint=attr_info.endpoint_id,
+            cluster=attr_info.cluster_class,
+            attribute=attr_info.attribute
         )
 
         # Attempt to write violating value
-        attr_obj = attr_info['attribute'](test_value)
+        attr_obj = attr_info.attribute(test_value)
         write_result = await self.default_controller.WriteAttribute(
             nodeId=self.dut_node_id,
-            attributes=[(attr_info['endpoint_id'], attr_obj)]
+            attributes=[(attr_info.endpoint_id, attr_obj)]
         )
         result_status = write_result[0].Status
 
         if result_status == Status.ConstraintError:
             # Verify value wasn't set to the violating value
             new_value = await self.read_single_attribute_check_success(
-                endpoint=attr_info['endpoint_id'],
-                cluster=attr_info['cluster_class'],
-                attribute=attr_info['attribute']
+                endpoint=attr_info.endpoint_id,
+                cluster=attr_info.cluster_class,
+                attribute=attr_info.attribute
             )
 
             if new_value == test_value:
-                log.error(f"FAIL: {attr_info['cluster_name']}.{attr_info['attribute_name']} "
+                log.error(f"FAIL: {attr_info.cluster_name}.{attr_info.attribute_name} "
                           f"was set to invalid value {test_value} despite CONSTRAINT_ERROR")
                 return False
 
-            log.info(f"PASS: {attr_info['cluster_name']}.{attr_info['attribute_name']} "
+            log.info(f"PASS: {attr_info.cluster_name}.{attr_info.attribute_name} "
                      f"constraint properly enforced (original={original_value}, rejected={test_value})")
             return True
 
-        log.error(f"FAIL: {attr_info['cluster_name']}.{attr_info['attribute_name']} "
+        log.error(f"FAIL: {attr_info.cluster_name}.{attr_info.attribute_name} "
                   f"got {result_status} instead of CONSTRAINT_ERROR for value {test_value}")
         return False
 

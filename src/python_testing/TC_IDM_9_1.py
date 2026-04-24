@@ -38,7 +38,7 @@
 import logging
 
 from mobly import asserts
-from support_modules.idm_support import IDMBaseTest
+from support_modules.idm_support import IDMBaseTest, WritableAttributeInfo
 
 import matter.clusters as Clusters
 from matter.interaction_model import InteractionModelError, Status
@@ -167,17 +167,17 @@ class TC_IDM_9_1(IDMBaseTest, BasicCompositionTests):
                     xml_attr = xml_cluster.attributes[attribute_id]
 
                     if xml_attr.write_access != Clusters.AccessControl.Enums.AccessControlEntryPrivilegeEnum.kUnknownEnumValue:
-                        writable_attributes.append({
-                            'endpoint_id': endpoint_id,
-                            'cluster_id': cluster_id,
-                            'cluster_name': xml_cluster.name,
-                            'attribute_id': attribute_id,
-                            'attribute_name': xml_attr.name,
-                            'attribute': Clusters.ClusterObjects.ALL_ATTRIBUTES[cluster_id][attribute_id],
-                            'cluster_class': cluster_class,
-                            'datatype': xml_attr.datatype,
-                            'constraints': xml_attr.constraints
-                        })
+                        writable_attributes.append(WritableAttributeInfo(
+                            endpoint_id=endpoint_id,
+                            cluster_id=cluster_id,
+                            cluster_name=xml_cluster.name,
+                            attribute_id=attribute_id,
+                            attribute_name=xml_attr.name,
+                            attribute=Clusters.ClusterObjects.ALL_ATTRIBUTES[cluster_id][attribute_id],
+                            cluster_class=cluster_class,
+                            datatype=xml_attr.datatype,
+                            constraints=xml_attr.constraints,
+                        ))
 
         log.info(f"Found {len(writable_attributes)} writable attributes on DUT")
 
@@ -187,7 +187,7 @@ class TC_IDM_9_1(IDMBaseTest, BasicCompositionTests):
         failed_attributes = []
 
         for attr_info in writable_attributes:
-            constraints = attr_info['constraints']
+            constraints = attr_info.constraints
 
             if not constraints or not constraints.has_constraints():
                 skipped_count += 1
@@ -198,12 +198,12 @@ class TC_IDM_9_1(IDMBaseTest, BasicCompositionTests):
                 if result is None:
                     skipped_count += 1
                 elif result is False:
-                    failed_attributes.append(f"{attr_info['cluster_name']}.{attr_info['attribute_name']}")
+                    failed_attributes.append(f"{attr_info.cluster_name}.{attr_info.attribute_name}")
                     tested_count += 1
                 else:
                     tested_count += 1
             except Exception as e:
-                log.warning(f"Exception testing {attr_info['cluster_name']}.{attr_info['attribute_name']}: {e}")
+                log.warning(f"Exception testing {attr_info.cluster_name}.{attr_info.attribute_name}: {e}")
                 skipped_count += 1
 
         log.info(f"Step 2 complete: Tested {tested_count} attributes, skipped {skipped_count}")
