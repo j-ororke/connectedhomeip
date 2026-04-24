@@ -69,6 +69,21 @@ def get_access_privilege_or_unknown(access_value: Optional[int]) -> int:
     return ACCESS_CONTROL_PRIVILEGE_ENUM.kUnknownEnumValue
 
 
+def _parse_numeric_constraint_value(value_str: str) -> Optional[Union[int, float]]:
+    """Parse a numeric constraint value, handling integers, floats, and hex strings.
+
+    Returns None if the value is not purely numeric (e.g., 'MaxMeasuredValue - 1'),
+    so callers can fall back to treating it as an attribute reference.
+    """
+    try:
+        if value_str.startswith(('0x', '0X')):
+            return int(value_str, 16)
+        value = float(value_str)
+        return int(value) if value.is_integer() else value
+    except ValueError:
+        return None
+
+
 class SpecParsingException(Exception):
     pass
 
@@ -650,17 +665,6 @@ class ClusterParser:
         if not constraint_elements:
             return None
 
-        # Helper to parse numeric values
-        def parse_value(value_str: str) -> Optional[Union[int, float]]:
-            """Parse numeric constraint value."""
-            try:
-                if value_str.startswith(('0x', '0X')):
-                    return int(value_str, 16)
-                value = float(value_str)
-                return int(value) if value.is_integer() else value
-            except ValueError:
-                return None
-
         # Helper to parse integer values (for counts)
         def parse_int_value(value_str: str) -> Optional[int]:
             """Parse integer constraint value (for counts)."""
@@ -677,9 +681,9 @@ class ClusterParser:
         for constraint in constraint_elements:
             # Handle direct attributes like min/max
             if 'min' in constraint.attrib:
-                min_value = parse_value(constraint.attrib['min'])
+                min_value = _parse_numeric_constraint_value(constraint.attrib['min'])
             if 'max' in constraint.attrib:
-                max_value = parse_value(constraint.attrib['max'])
+                max_value = _parse_numeric_constraint_value(constraint.attrib['max'])
 
             # Handle maxCount child element
             max_count_elem = constraint.find('./maxCount')
@@ -859,23 +863,6 @@ class ClusterParser:
         if constraint_elem is None:
             return None
 
-        # Helper to parse numeric values (handles both int and float)
-        def parse_numeric_value(value_str: str) -> Optional[Union[int, float]]:
-            """Parse a numeric constraint value, handling integers, floats, and hex strings."""
-            try:
-                # Handle hexadecimal strings (e.g., '0x001F')
-                if value_str.startswith(('0x', '0X')):
-                    return int(value_str, 16)
-
-                # Try parsing as float (handles both int and float strings)
-                value = float(value_str)
-                # Return as int if it's a whole number, otherwise as float
-                return int(value) if value.is_integer() else value
-            except ValueError:
-                # Value contains non-numeric content (e.g., 'MaxMeasuredValue - 1')
-                # Return None to indicate this should be handled as a reference
-                return None
-
         # Helper to parse constraint reference from attribute value or element
         def parse_reference(elem: ElementTree.Element, value_str: Optional[str] = None) -> Optional[ConstraintReference]:
             """Parse dynamic constraint reference to another attribute."""
@@ -916,7 +903,7 @@ class ClusterParser:
         if min_elem is not None:
             if 'value' in min_elem.attrib:
                 value_str = min_elem.attrib['value']
-                min_value = parse_numeric_value(value_str)
+                min_value = _parse_numeric_constraint_value(value_str)
                 # If numeric parsing failed, try to parse as reference
                 if min_value is None:
                     min_value_ref = parse_reference(min_elem, value_str)
@@ -927,7 +914,7 @@ class ClusterParser:
         if max_elem is not None:
             if 'value' in max_elem.attrib:
                 value_str = max_elem.attrib['value']
-                max_value = parse_numeric_value(value_str)
+                max_value = _parse_numeric_constraint_value(value_str)
                 # If numeric parsing failed, try to parse as reference
                 if max_value is None:
                     max_value_ref = parse_reference(max_elem, value_str)
@@ -942,7 +929,7 @@ class ClusterParser:
             if from_elem is not None:
                 if 'value' in from_elem.attrib:
                     value_str = from_elem.attrib['value']
-                    min_value = parse_numeric_value(value_str)
+                    min_value = _parse_numeric_constraint_value(value_str)
                     # If numeric parsing failed, try to parse as reference
                     if min_value is None:
                         min_value_ref = parse_reference(from_elem, value_str)
@@ -952,7 +939,7 @@ class ClusterParser:
             if to_elem is not None:
                 if 'value' in to_elem.attrib:
                     value_str = to_elem.attrib['value']
-                    max_value = parse_numeric_value(value_str)
+                    max_value = _parse_numeric_constraint_value(value_str)
                     # If numeric parsing failed, try to parse as reference
                     if max_value is None:
                         max_value_ref = parse_reference(to_elem, value_str)
