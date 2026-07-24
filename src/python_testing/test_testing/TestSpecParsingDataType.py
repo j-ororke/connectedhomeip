@@ -31,7 +31,6 @@ LOGGER = logging.getLogger(__name__)
 
 
 class TestSpecParsingDataType(CertificationUnitTestNoDevice):
-    requires_dut = False
 
     def setup_class(self):
         super().setup_class()

@@ -123,18 +123,21 @@ is already commissioned is still `MatterTestCommissionedDevice`: classification
 follows the DUT's required starting state, not incidental commissioning actions.
 
 > **Wildcard subscription is a separate concern.** Whether the background
-> wildcard subscription runs is controlled only by `requires_dut` /
+> wildcard subscription runs is controlled by `requires_dut` /
 > `disable_wildcard_subscription` / `--no-wildcard-subscription` (see
 > [Wildcard subscription read verification](#wildcard-subscription-read-verification)).
-> The device-requirement marker must **not** be used to derive subscription
-> behavior, and the markers deliberately set no subscription attribute. For
-> example, a `MatterTestCommissionedDevice` test may still set
-> `requires_dut = False` to skip the subscription — the two are independent.
+> For the three device-STATE markers (`MatterTestCommissionedDevice`,
+> `MatterTestUncommissionedDevice`, `MatterTestCommissioner`) this is independent
+> of classification — e.g. a `MatterTestCommissionedDevice` test may still set
+> `requires_dut = False` to skip the subscription. The one exception is
+> `CertificationUnitTestNoDevice`, which sets `requires_dut = False` on the base:
+> a test that never talks to a DUT can never use the subscription, so no-device
+> tests inherit that automatically and should not set it themselves.
 
 `TestDeviceRequirementMarkers.py` (under `test_testing/`) enforces the hierarchy
-invariants (markers are empty, mutually exclusive, and independent of the
-subscription) and checks that the reclassified tests declare the expected
-marker.
+invariants (the device-state markers are empty and subscription-independent,
+`CertificationUnitTestNoDevice` disables the subscription, markers are mutually
+exclusive) and checks that the reclassified tests declare the expected marker.
 
 ## Cluster Codegen
 

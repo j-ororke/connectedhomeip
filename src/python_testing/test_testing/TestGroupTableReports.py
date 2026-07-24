@@ -47,7 +47,7 @@ from matter.testing.runner import default_matter_test_main
 
 
 class TestGroupTableReports(MatterTestCommissionedDevice):
-    requires_dut = False
+    disable_wildcard_subscription = True
 
     @async_test_body
     async def test_group_table_reports(self):

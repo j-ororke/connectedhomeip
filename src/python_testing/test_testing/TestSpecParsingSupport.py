@@ -264,7 +264,6 @@ PROVISIONAL_CLUSTER_TEMPLATE = """
 
 
 class TestSpecParsingSupport(CertificationUnitTestNoDevice):
-    requires_dut = False
 
     def setup_class(self):
         super().setup_class()

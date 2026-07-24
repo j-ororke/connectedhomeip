@@ -27,7 +27,7 @@ log = logging.getLogger(__name__)
 
 
 class TestCheckSoftwareVersion(MatterTestCommissionedDevice):
-    requires_dut = False
+    disable_wildcard_subscription = True
 
     @async_test_body
     async def setup_class(self):

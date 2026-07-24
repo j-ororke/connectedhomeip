@@ -55,7 +55,7 @@ how DUT processes commands.
 
 
 class TestBatchInvoke(MatterTestCommissionedDevice):
-    requires_dut = False
+    disable_wildcard_subscription = True
 
     @async_test_body
     async def test_batch_invoke(self):

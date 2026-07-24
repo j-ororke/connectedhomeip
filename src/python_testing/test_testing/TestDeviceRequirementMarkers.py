@@ -178,22 +178,35 @@ class TestDeviceRequirementMarkers(unittest.TestCase):
             if p not in sys.path:
                 sys.path.insert(0, p)
 
-    def test_markers_are_empty_subclasses_of_base(self):
-        """Each marker is an empty subclass of MatterBaseTest (pure declaration, no behavior)."""
+    def test_markers_are_direct_subclasses_of_base(self):
+        """Each marker derives directly from MatterBaseTest and defines no members beyond the
+        single sanctioned attribute: CertificationUnitTestNoDevice may set requires_dut; the
+        device-STATE markers define nothing at all."""
         allowed = {"__doc__", "__module__", "__firstlineno__", "__static_attributes__", "__qualname__"}
         for marker in _MARKERS:
             self.assertTrue(issubclass(marker, MatterBaseTest), f"{marker.__name__} must subclass MatterBaseTest")
             self.assertIs(marker.__base__, MatterBaseTest, f"{marker.__name__} must derive directly from MatterBaseTest")
-            extra = set(marker.__dict__) - allowed
+            permitted = allowed | ({"requires_dut"} if marker is CertificationUnitTestNoDevice else set())
+            extra = set(marker.__dict__) - permitted
             self.assertEqual(extra, set(), f"{marker.__name__} must not define members, found: {extra}")
 
-    def test_markers_do_not_touch_subscription(self):
-        """Device classification is orthogonal to the wildcard subscription: markers must not
-        set requires_dut or disable_wildcard_subscription."""
-        for marker in _MARKERS:
+    def test_device_state_markers_do_not_touch_subscription(self):
+        """The three device-STATE markers stay orthogonal to the wildcard subscription: they set
+        neither requires_dut nor disable_wildcard_subscription."""
+        for marker in (MatterTestCommissionedDevice, MatterTestUncommissionedDevice, MatterTestCommissioner):
             self.assertNotIn("requires_dut", marker.__dict__, f"{marker.__name__} must not set requires_dut")
             self.assertNotIn("disable_wildcard_subscription", marker.__dict__,
                              f"{marker.__name__} must not set disable_wildcard_subscription")
+
+    def test_no_device_marker_disables_subscription(self):
+        """CertificationUnitTestNoDevice is the sanctioned exception: it sets requires_dut = False
+        on the base (a no-device test can never use the subscription) so no-device tests inherit
+        it without each having to set it. It sets nothing else subscription-related."""
+        self.assertIn("requires_dut", CertificationUnitTestNoDevice.__dict__,
+                      "CertificationUnitTestNoDevice must set requires_dut on the base")
+        self.assertFalse(CertificationUnitTestNoDevice.requires_dut,
+                         "CertificationUnitTestNoDevice.requires_dut must be False")
+        self.assertNotIn("disable_wildcard_subscription", CertificationUnitTestNoDevice.__dict__)
 
     def test_base_is_requirement_neutral(self):
         """MatterBaseTest itself declares no device requirement, and BasicCompositionTests is a

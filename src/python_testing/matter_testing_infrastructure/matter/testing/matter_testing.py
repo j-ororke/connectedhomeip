@@ -530,7 +530,10 @@ class MatterBaseTest(base_test.BaseTestClass):
       real DUT (e.g. parser/conformance unit tests under test_testing/).  Such tests
       will skip the background wildcard subscription so they don't try to subscribe to a
       device that isn't there.  Default is True. This flag is independent of the
-      device-requirement marker; do not derive one from the other.
+      device-STATE markers (MatterTestCommissionedDevice / MatterTestUncommissionedDevice /
+      MatterTestCommissioner); do not derive one from the other. The sole exception is
+      CertificationUnitTestNoDevice, which sets requires_dut = False on the base since a
+      no-device test can never use the subscription.
     * Set class attribute disable_wildcard_subscription = True to skip the background
       wildcard subscription and its ACL side effects — same effect as --no-wildcard-subscription.
     * When a wildcard subscription is active, read_single_attribute_check_success compares
@@ -3351,17 +3354,20 @@ class MatterBaseTest(base_test.BaseTestClass):
 #
 # These declare, per test class, what device state a test needs so tooling (the
 # Test Harness, CI selection, structural checks) can reason about it statically.
-# They are pure markers: each is an empty subclass of MatterBaseTest that adds NO
-# runtime behavior. Update a test's inheritance to the marker that matches its
-# device requirement; method resolution order is unchanged because the markers
-# override nothing.
+# They are near-inert declarations: they add no runtime logic and do not change
+# method resolution order (they override nothing). Update a test's inheritance to
+# the marker that matches its device requirement.
 #
-# IMPORTANT: device classification is INDEPENDENT of the background wildcard
-# subscription. Whether the subscription runs is controlled solely by
-# requires_dut / disable_wildcard_subscription / --no-wildcard-subscription (see
-# MatterBaseTest.setup_test). These markers deliberately set no subscription
-# attribute, and a test's device-requirement marker must never be used to derive
-# subscription behavior. The two concerns are orthogonal.
+# IMPORTANT: for the three device-STATE markers (MatterTestCommissionedDevice,
+# MatterTestUncommissionedDevice, MatterTestCommissioner), device classification is
+# INDEPENDENT of the background wildcard subscription. Whether the subscription runs
+# is controlled solely by requires_dut / disable_wildcard_subscription /
+# --no-wildcard-subscription (see MatterBaseTest.setup_test), and those markers must
+# never be used to derive subscription behavior.
+#
+# The one sanctioned exception is CertificationUnitTestNoDevice, which sets
+# requires_dut = False: a test that never communicates with a DUT can never use the
+# subscription, so that single coupling is always correct.
 # ---------------------------------------------------------------------------
 
 
@@ -3394,7 +3400,14 @@ class MatterTestCommissioner(MatterBaseTest):
 
 
 class CertificationUnitTestNoDevice(MatterBaseTest):
-    """Marker: a parser / validation / framework unit test that never communicates with a DUT."""
+    """Marker: a parser / validation / framework unit test that never communicates with a DUT.
+
+    Sets requires_dut = False so no-device tests skip the background wildcard subscription by
+    default (there is no DUT to subscribe to). This is the only marker that carries a
+    subscription default; it is always correct for the no-device case, so subclasses do not
+    need to set requires_dut themselves."""
+
+    requires_dut = False
 
 
 _DEVICE_REQUIREMENT_MARKERS: tuple[type, ...] = (

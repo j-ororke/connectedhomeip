@@ -52,7 +52,7 @@ from matter.testing.runner import TestStep, default_matter_test_main
 
 
 class TestBdxTransfer(MatterTestCommissionedDevice):
-    requires_dut = False
+    disable_wildcard_subscription = True
 
     _intents = [
         (Clusters.DiagnosticLogs.Enums.IntentEnum.kEndUserSupport, "/tmp/eusl.txt", 9240),  # BDX

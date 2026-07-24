@@ -36,7 +36,6 @@ def basic_test(xml: str, cls: Callable) -> None:
 
 
 class TestConformanceSupport(CertificationUnitTestNoDevice):
-    requires_dut = False
 
     def setup_class(self):
         super().setup_class()

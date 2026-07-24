@@ -48,7 +48,7 @@ logger = logging.getLogger(__name__)
 
 
 class TestFactoryResetRequests(MatterTestCommissioner):
-    requires_dut = False
+    disable_wildcard_subscription = True
 
     def desc_TestFactoryResetRequests(self) -> str:
         return "[TestFactoryResetRequests] Test Factory Reset Requests"

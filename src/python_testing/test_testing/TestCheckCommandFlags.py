@@ -52,7 +52,7 @@ log = logging.getLogger(__name__)
 
 
 class TestCheckCommandFlags(MatterTestCommissionedDevice):
-    requires_dut = False
+    disable_wildcard_subscription = True
 
     @async_test_body
     async def test_invalid_transport_type_for_large_payload(self):
