@@ -127,12 +127,12 @@ follows the DUT's required starting state, not incidental commissioning actions.
 > `disable_wildcard_subscription` / `--no-wildcard-subscription` (see
 > [Wildcard subscription read verification](#wildcard-subscription-read-verification)).
 > For the three device-STATE markers (`MatterTestCommissionedDevice`,
-> `MatterTestUncommissionedDevice`, `MatterTestCommissioner`) this is independent
-> of classification — e.g. a `MatterTestCommissionedDevice` test may still set
-> `requires_dut = False` to skip the subscription. The one exception is
-> `CertificationUnitTestNoDevice`, which sets `requires_dut = False` on the base:
-> a test that never talks to a DUT can never use the subscription, so no-device
-> tests inherit that automatically and should not set it themselves.
+> `MatterTestUncommissionedDevice`, `MatterTestCommissioner`) this is
+> independent of classification — e.g. a `MatterTestCommissionedDevice` test may
+> still set `requires_dut = False` to skip the subscription. The one exception
+> is `CertificationUnitTestNoDevice`, which sets `requires_dut = False` on the
+> base: a test that never talks to a DUT can never use the subscription, so
+> no-device tests inherit that automatically and should not set it themselves.
 
 `TestDeviceRequirementMarkers.py` (under `test_testing/`) enforces the hierarchy
 invariants (the device-state markers are empty and subscription-independent,
